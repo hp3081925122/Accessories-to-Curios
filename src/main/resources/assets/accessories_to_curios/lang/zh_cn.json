@@ -1,11 +1,25 @@
 {
+  "accessories_to_curios.configuration.title": "Accessories to Curios 配置",
+  "accessories_to_curios.configuration.bridge": "通用桥接设置",
+  "accessories_to_curios.configuration.bridge.tooltip": "服务端与通用兼容性桥接设置",
+  "accessories_to_curios.configuration.client": "客户端桥接设置",
+  "accessories_to_curios.configuration.client.tooltip": "客户端界面、快捷键与渲染桥接设置",
   "accessories_to_curios.configuration.disableAccessoriesMenu": "将 Accessories 界面重定向至 Curios",
+  "accessories_to_curios.configuration.disableAccessoriesMenu.tooltip": "将服务端打开 Accessories 饰品界面的请求重定向到 Curios 饰品栏界面。",
   "accessories_to_curios.configuration.autoRegisterUsedSlots": "自动注册被使用的 Accessories 栏位",
+  "accessories_to_curios.configuration.autoRegisterUsedSlots.tooltip": "自动检测被模组实际使用的 Accessories 栏位并同步注册绑定到 Curios。",
   "accessories_to_curios.configuration.migrateLegacyData": "自动迁移旧存档 Accessories 数据",
+  "accessories_to_curios.configuration.migrateLegacyData.tooltip": "自动将旧存档中已装备在 Accessories 容器内的饰品、装饰栏与持久栏位修饰符无损迁移到 Curios。",
   "accessories_to_curios.configuration.customSlotMappings": "自定义栏位映射",
+  "accessories_to_curios.configuration.customSlotMappings.tooltip": "自定义栏位映射覆盖列表，格式为 accessories_slot=curios_slot（例如 shoes=feet）。",
   "accessories_to_curios.configuration.hideAccessoriesUi": "隐藏 Accessories 背包按钮与按键",
+  "accessories_to_curios.configuration.hideAccessoriesUi.tooltip": "移除生存与创造背包界面上的 Accessories 按钮，并取消注册其独立快捷键。",
   "accessories_to_curios.configuration.redirectOpenToCurios": "重定向客户端打开饰品栏至 Curios",
+  "accessories_to_curios.configuration.redirectOpenToCurios.tooltip": "将客户端调用打开 Accessories 界面的行为重定向为打开 Curios 界面。",
   "accessories_to_curios.configuration.enableDefaultAccessoryRenderer": "启用默认 Accessories 佩戴渲染",
+  "accessories_to_curios.configuration.enableDefaultAccessoryRenderer.tooltip": "允许未单独注册 3D 渲染器的原生 Accessories 饰品使用 Accessories 默认佩戴渲染器。",
+  "accessories_to_curios.modifiers.slot": "佩戴%s时：",
+  "accessories_to_curios.modifiers.any": "佩戴时：",
   "curios.identifier.feet": "足饰",
   "curios.identifier.shoes": "鞋靴",
   "curios.identifier.anklet": "脚链",
@@ -21,5 +35,333 @@
   "curios.modifiers.face": "佩戴面饰时：",
   "curios.modifiers.hat": "佩戴头饰时：",
   "curios.modifiers.hand": "佩戴手饰时：",
-  "curios.modifiers.wrist": "佩戴腕饰时："
+  "curios.modifiers.wrist": "佩戴腕饰时：",
+
+  "accessories.slot.tooltip.singular": "栏位：",
+  "accessories.slot.tooltip.plural": "栏位：",
+  "accessories.cosmetic_slot.tooltip.singular": "装饰栏位：",
+  "accessories.cosmetic_slot.tooltip.plural": "装饰栏位：",
+  "accessories.slot.any": "任意",
+  "accessories.slot.except": "，但不含 ",
+  "accessories.tooltip.attributes.any": "佩戴时：",
+  "accessories.tooltip.attributes.slot": "佩戴%s时：",
+  "accessories.tooltip.currently_equipped_in": "当前佩戴于：",
+  "accessories.slot.hat": "头饰",
+  "accessories.slot.face": "面饰",
+  "accessories.slot.cape": "披风",
+  "accessories.slot.necklace": "项链",
+  "accessories.slot.back": "背饰",
+  "accessories.slot.hand": "手饰",
+  "accessories.slot.ring": "戒指",
+  "accessories.slot.wrist": "腕饰",
+  "accessories.slot.belt": "腰带",
+  "accessories.slot.anklet": "脚链",
+  "accessories.slot.shoes": "鞋靴",
+  "accessories.slot.charm": "护符",
+  "accessories.slot.accessories.head": "头部",
+  "accessories.slot.accessories.chest": "胸部",
+  "accessories.slot.accessories.legs": "腿部",
+  "accessories.slot.accessories.feet": "足部",
+  "accessories.slot.accessories.animal_body": "躯体",
+  "accessories.slot_group.misc": "杂项",
+  "accessories.slot_group.head": "头部",
+  "accessories.slot_group.chest": "胸部",
+  "accessories.slot_group.arm": "手臂",
+  "accessories.slot_group.leg": "腿部",
+  "accessories.slot_group.feet": "足部",
+  "accessories.slot_group.unsorted": "未分类",
+  "accessories.key.category.accessories": "饰品（Accessories）",
+  "argument.livingEntities.nonLiving": "该指令仅可作用于生物实体（LivingEntity），但当前选择器包含了非生物实体",
+  "gamerule.accessories.keepAccessoryInventory": "死亡后保留饰品栏",
+
+  "accessories.key.open_accessories_screen": "打开饰品栏",
+  "accessories.slot.cosmetics.toggle.show": "显示装饰栏位",
+  "accessories.slot.cosmetics.toggle.hide": "隐藏装饰栏位",
+  "accessories.display.toggle.show": "显示饰品外观",
+  "accessories.display.toggle.hide": "隐藏饰品外观",
+  "accessories.lines.toggle.show": "显示全部连线",
+  "accessories.lines.toggle.hide": "隐藏全部连线",
+  "accessories.unused_slots.toggle.show": "显示未使用栏位",
+  "accessories.unused_slots.toggle.hide": "隐藏未使用栏位",
+  "accessories.slot_cosmetics.toggle.enabled": "显示饰品栏位",
+  "accessories.slot_cosmetics.toggle.disabled": "显示装饰栏位",
+  "accessories.advanced_options.toggle.enabled": "❤",
+  "accessories.advanced_options.toggle.disabled": "⚗",
+  "accessories.advanced_options.toggle.enabled.tooltip": "隐藏额外界面配置选项",
+  "accessories.advanced_options.toggle.disabled.tooltip": "显示额外界面配置选项",
+  "accessories.unused_slots.label": "未使用栏位：",
+  "accessories.unused_slots.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "✔", "color": "#28FFBF"},
+    {"text": "]", "color": "gray"},
+    " 已显示"
+  ],
+  "accessories.unused_slots.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "❌", "color": "#EB1D36"},
+    {"text": "]", "color": "gray"},
+    " 已隐藏"
+  ],
+  "accessories.unused_slots.toggle.enabled.tooltip": "隐藏所有未使用的栏位",
+  "accessories.unused_slots.toggle.disabled.tooltip": "显示所有未使用的栏位",
+  "accessories.column_amount_slider.label": "列数：",
+  "accessories.column_amount_slider.tooltip": "调整饰品栏布局的列数",
+  "accessories.widget_type.label": "布局样式：",
+  "accessories.widget_type.paginated": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "☰", "color": "#347ecf"},
+    {"text": "]", "color": "gray"},
+    " 分页"
+  ],
+  "accessories.widget_type.paginated.tooltip": "采用分页布局显示饰品栏位",
+  "accessories.widget_type.scrollable": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "⏷", "color": "#953abd"},
+    {"text": "]", "color": "gray"},
+    " 滚动"
+  ],
+  "accessories.widget_type.scrollable.tooltip": "采用可滚动布局显示饰品栏位",
+  "accessories.main_widget_position.label": "面板位置：",
+  "accessories.main_widget_position.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "←", "color": "#32a852"},
+    {"text": "]", "color": "gray"},
+    " 左侧"
+  ],
+  "accessories.main_widget_position.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "→", "color": "#32a852"},
+    {"text": "]", "color": "gray"},
+    " 右侧"
+  ],
+  "accessories.main_widget_position.toggle.enabled.tooltip": "将饰品面板移动到右侧",
+  "accessories.main_widget_position.toggle.disabled.tooltip": "将饰品面板移动到左侧",
+  "accessories.group_filter.label": "分组筛选：",
+  "accessories.group_filter.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "✔", "color": "#28FFBF"},
+    {"text": "]", "color": "gray"},
+    " 已显示"
+  ],
+  "accessories.group_filter.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "❌", "color": "#EB1D36"},
+    {"text": "]", "color": "gray"},
+    " 已隐藏"
+  ],
+  "accessories.group_filter.toggle.enabled.tooltip": "隐藏分组筛选组件",
+  "accessories.group_filter.toggle.disabled.tooltip": "显示分组筛选组件",
+  "accessories.side_widget_position.label": "侧栏位置：",
+  "accessories.side_widget_position.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "()", "color": "#32a852"},
+    {"text": "]", "color": "gray"},
+    " 同侧"
+  ],
+  "accessories.side_widget_position.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "||", "color": "#32a852"},
+    {"text": "]", "color": "gray"},
+    " 对侧"
+  ],
+  "accessories.side_widget_position.toggle.enabled.tooltip": "将侧栏放到与饰品面板同一侧",
+  "accessories.side_widget_position.toggle.disabled.tooltip": "将侧栏放到饰品面板的对侧",
+  "accessories.dark_mode_toggle.label": "主题模式：",
+  "accessories.dark_mode_toggle.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "☽", "color": "#3d29c2"},
+    {"text": "]", "color": "gray"},
+    " 深色"
+  ],
+  "accessories.dark_mode_toggle.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "☀", "color": "#bffa9b"},
+    {"text": "]", "color": "gray"},
+    " 浅色"
+  ],
+  "accessories.dark_mode_toggle.toggle.enabled.tooltip": "切换为浅色模式",
+  "accessories.dark_mode_toggle.toggle.disabled.tooltip": "切换为深色模式",
+  "accessories.show_equipped_stack_slot_type.label": "已装备栏位提示：",
+  "accessories.show_equipped_stack_slot_type.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "✔", "color": "#28FFBF"},
+    {"text": "]", "color": "gray"},
+    " 已显示"
+  ],
+  "accessories.show_equipped_stack_slot_type.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "❌", "color": "#EB1D36"},
+    {"text": "]", "color": "gray"},
+    " 已隐藏"
+  ],
+  "accessories.show_equipped_stack_slot_type.toggle.enabled.tooltip": "隐藏物品提示中的已装备栏位类型",
+  "accessories.show_equipped_stack_slot_type.toggle.disabled.tooltip": "在物品提示中显示已装备栏位类型",
+  "accessories.entity_look_at_cursor.label": "朝向鼠标：",
+  "accessories.entity_look_at_cursor.toggle.enabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "✔", "color": "#28FFBF"},
+    {"text": "]", "color": "gray"},
+    " 已启用"
+  ],
+  "accessories.entity_look_at_cursor.toggle.disabled": [
+    "",
+    {"text": "[", "color": "gray"},
+    {"text": "❌", "color": "#EB1D36"},
+    {"text": "]", "color": "gray"},
+    " 已禁用"
+  ],
+  "accessories.entity_look_at_cursor.toggle.enabled.tooltip": "禁用实体模型朝向鼠标光标",
+  "accessories.entity_look_at_cursor.toggle.disabled.tooltip": "启用实体模型朝向鼠标光标",
+  "accessories.lines.toggle.enabled.tooltip": "隐藏所有连线渲染",
+  "accessories.lines.toggle.disabled.tooltip": "显示所有连线渲染",
+  "accessories.crafting_grid.toggle.enabled": "☒",
+  "accessories.crafting_grid.toggle.disabled": "☐",
+  "accessories.crafting_grid.toggle.enabled.tooltip": "隐藏小型合成栏",
+  "accessories.crafting_grid.toggle.disabled.tooltip": "显示小型合成栏",
+  "accessories.selection_screen.message": [
+    "下方提供了不同的界面样式选项，\n",
+    "可根据整合包风格或个人习惯自由选择。\n\n",
+    "之后也可以随时在 Accessories 配置中\n",
+    "重新调整该选项。"
+  ],
+  "accessories.unique_slots.toggle.show": "显示独立栏位",
+  "accessories.unique_slots.toggle.hide": "隐藏独立栏位",
+  "accessories.back.screen": "返回上一界面",
+  "accessories.open.screen": "打开饰品栏",
+  "accessories.reset.group_filter": "重置分组筛选",
+
+  "text.config.accessories.title": "Accessories 配置",
+  "text.config.accessories.option.useExperimentalCaching": "使用实验性缓存",
+  "text.config.accessories.option.useExperimentalCaching.tooltip": [
+    "尝试缓存部分物品查找结果以提升性能，\n",
+    "但在个别情况下可能引发问题。"
+  ],
+  "text.config.accessories.category.clientOptions": "客户端选项",
+  "text.config.accessories.category.clientOptions.tooltip": [
+    "包含渲染和玩家输入相关的通用客户端选项"
+  ],
+  "text.config.accessories.option.clientOptions.forceNullRenderReplacement": "强制替换空渲染器",
+  "text.config.accessories.option.clientOptions.forceNullRenderReplacement.tooltip": [
+    "强制将已注册的无渲染饰品\n",
+    "改为使用默认佩戴渲染器。"
+  ],
+  "text.config.accessories.option.clientOptions.disableEmptySlotScreenError": "禁用无可用栏位提示",
+  "text.config.accessories.option.clientOptions.disableEmptySlotScreenError.tooltip": [
+    "禁用在未发现任何可用饰品栏位时\n",
+    "打开饰品界面弹出的提示信息。"
+  ],
+  "text.config.accessories.option.clientOptions.showCosmeticAccessories": "显示装饰栏物品渲染",
+  "text.config.accessories.option.clientOptions.showCosmeticAccessories.tooltip": [
+    "启用或禁用已装备装饰栏物品的模型渲染。"
+  ],
+  "text.config.accessories.option.clientOptions.disabledDefaultRenders": "禁用默认渲染器",
+  "text.config.accessories.option.clientOptions.disabledDefaultRenders.tooltip": [
+    "禁用内置的默认饰品佩戴渲染器。"
+  ],
+  "text.config.accessories.option.clientOptions.equipControl": "手持快捷穿戴模式",
+  "text.config.accessories.option.clientOptions.equipControl.tooltip": [
+    "调整手持物品右键快捷穿戴的触发方式。"
+  ],
+  "text.config.accessories.enum.playerEquipControl.must_crouch": "需要潜行",
+  "text.config.accessories.enum.playerEquipControl.must_not_crouch": "无需潜行",
+  "text.config.accessories.enum.playerEquipControl.disabled": "禁用",
+  "text.config.accessories.category.screenOptions": "界面选项",
+  "text.config.accessories.category.screenOptions.tooltip": [
+    "包含界面样式、布局与背包按钮偏移等所有界面配置"
+  ],
+  "text.config.accessories.option.screenOptions.selectedScreenType": "界面类型",
+  "text.config.accessories.option.screenOptions.selectedScreenType.tooltip": [
+    "选择使用的饰品界面样式；设为“未指定”时\n",
+    "会在打开时弹出选择提示。"
+  ],
+  "text.config.accessories.enum.screenType.none": "未指定",
+  "text.config.accessories.enum.screenType.original": "经典界面",
+  "text.config.accessories.enum.screenType.experimental_v1": "实验性界面",
+  "text.config.accessories.option.screenOptions.showUnusedSlots": "显示未使用栏位",
+  "text.config.accessories.option.screenOptions.showUnusedSlots.tooltip": "切换是否显示未使用的饰品栏位",
+  "text.config.accessories.option.screenOptions.allowSlotScrolling": "允许栏位滚轮滚动",
+  "text.config.accessories.option.screenOptions.allowSlotScrolling.tooltip": [
+    "若安装了滚轮快捷移动物品模组导致浏览饰品栏冲突，\n",
+    "可关闭此项避免误触。"
+  ],
+  "text.config.accessories.option.screenOptions.showEquippedStackSlotType": "显示已装备物品所属栏位",
+  "text.config.accessories.option.screenOptions.showEquippedStackSlotType.tooltip": [
+    "在已装备饰品的物品提示中显示当前所在的栏位类型。"
+  ],
+  "text.config.accessories.option.screenOptions.entityLooksAtMouseCursor": "使玩家模型朝向鼠标光标",
+  "text.config.accessories.option.screenOptions.entityLooksAtMouseCursor.tooltip": [
+    "启用后界面中的实体模型会跟随鼠标光标转动，\n",
+    "关闭后可手动拖拽旋转模型。"
+  ],
+  "text.config.accessories.option.screenOptions.allowSideBarCraftingGrid": "允许在侧栏显示合成格",
+  "text.config.accessories.option.screenOptions.allowSideBarCraftingGrid.tooltip": [
+    "当未显示分组筛选栏时，尝试将小型合成栏\n",
+    "放置在侧边栏而非底部。"
+  ],
+  "text.config.accessories.section.button_offsets": "注入按钮偏移",
+  "text.config.accessories.option.screenOptions.inventoryButtonOffset": "生存背包按钮偏移",
+  "text.config.accessories.option.screenOptions.inventoryButtonOffset.x": "X 轴偏移",
+  "text.config.accessories.option.screenOptions.inventoryButtonOffset.y": "Y 轴偏移",
+  "text.config.accessories.option.screenOptions.creativeInventoryButtonOffset": "创造背包按钮偏移",
+  "text.config.accessories.option.screenOptions.creativeInventoryButtonOffset.x": "X 轴偏移",
+  "text.config.accessories.option.screenOptions.creativeInventoryButtonOffset.y": "Y 轴偏移",
+  "text.config.accessories.section.experimental": "实验性界面设置",
+  "text.config.accessories.option.screenOptions.isDarkMode": "启用深色主题",
+  "text.config.accessories.option.screenOptions.isDarkMode.tooltip": [
+    "将实验性饰品界面的主题切换为深色模式。"
+  ],
+  "text.config.accessories.section.legacy": "经典界面设置",
+  "text.config.accessories.option.screenOptions.showGroupTabs": "显示快捷分组标签页",
+  "text.config.accessories.option.screenOptions.showGroupTabs.tooltip": [
+    "在经典界面中显示或隐藏分组标签页。"
+  ],
+  "text.config.accessories.section.hover": "悬停效果",
+  "text.config.accessories.category.screenOptions.hoveredOptions": "悬停项效果",
+  "text.config.accessories.category.screenOptions.hoveredOptions.tooltip": [
+    "控制鼠标悬停在栏位上时的视觉效果。"
+  ],
+  "text.config.accessories.option.screenOptions.hoveredOptions.brightenHovered": "高亮悬停项",
+  "text.config.accessories.option.screenOptions.hoveredOptions.cycleBrightness": "亮度呼吸闪烁",
+  "text.config.accessories.option.screenOptions.hoveredOptions.line": "绘制指示连线",
+  "text.config.accessories.option.screenOptions.hoveredOptions.clickbait": "点击引导效果",
+  "text.config.accessories.category.screenOptions.unHoveredOptions": "非悬停项效果",
+  "text.config.accessories.category.screenOptions.unHoveredOptions.tooltip": [
+    "控制鼠标未悬停栏位的视觉效果。"
+  ],
+  "text.config.accessories.option.screenOptions.unHoveredOptions.renderUnHovered": "继续渲染非悬停项",
+  "text.config.accessories.option.screenOptions.unHoveredOptions.darkenUnHovered": "压暗非悬停项",
+  "text.config.accessories.option.screenOptions.unHoveredOptions.darkenedBrightness": "压暗亮度",
+  "text.config.accessories.option.screenOptions.unHoveredOptions.darkenedOpacity": "压暗不透明度",
+  "text.config.accessories.option.disabledDefaultRenders": "按栏位禁用默认渲染器",
+  "text.config.accessories.option.disabledDefaultRenders.tooltip": [
+    "针对指定栏位禁用默认佩戴渲染器\n",
+    "（可分别指定物品、方块或全部）。"
+  ],
+  "text.config.accessories.option.clientOptions.disabledDefaultRenders.slotType": "栏位",
+  "text.config.accessories.option.clientOptions.disabledDefaultRenders.targetType": "渲染目标",
+  "text.config.accessories.enum.targetType.item": "物品",
+  "text.config.accessories.enum.targetType.block": "方块",
+  "text.config.accessories.enum.targetType.all": "全部",
+  "text.config.accessories.option.modifiers": "栏位数量增减",
+  "text.config.accessories.option.modifiers.tooltip": [
+    "无需数据包即可直接增减指定栏位的数量\n",
+    "（支持正数增加或负数减少）。"
+  ],
+  "text.config.accessories.option.modifiers.slotType": "栏位",
+  "text.config.accessories.option.modifiers.amount": "增减值"
 }

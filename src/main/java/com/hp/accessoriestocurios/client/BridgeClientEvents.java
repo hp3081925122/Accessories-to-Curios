@@ -212,6 +212,24 @@ public final class BridgeClientEvents {
         MutableComponent rebuilt = null;
         if (comp.getContents() instanceof TranslatableContents tc) {
             String key = tc.getKey();
+            Object[] rawArgs = tc.getArgs();
+            Object[] rewrittenArgs = rawArgs;
+            boolean anyArgChanged = false;
+            if (rawArgs.length > 0) {
+                rewrittenArgs = new Object[rawArgs.length];
+                for (int i = 0; i < rawArgs.length; i++) {
+                    Object arg = rawArgs[i];
+                    if (arg instanceof Component argComp) {
+                        Component newArg = rewriteComponent(argComp);
+                        rewrittenArgs[i] = newArg;
+                        if (newArg != argComp) {
+                            anyArgChanged = true;
+                        }
+                    } else {
+                        rewrittenArgs[i] = arg;
+                    }
+                }
+            }
             if (key.startsWith("curios.identifier.") && !I18n.exists(key)) {
                 String id = key.substring("curios.identifier.".length());
                 String accKey = resolveAccessoriesTranslationKey(id);
@@ -223,10 +241,12 @@ public final class BridgeClientEvents {
                 String accKey = resolveAccessoriesTranslationKey(id);
                 if (accKey != null) {
                     rebuilt = Component.translatable(
-                            Accessories.translationKey("tooltip.attributes.slot"),
+                            AccessoriesToCurios.MOD_ID + ".modifiers.slot",
                             Component.translatable(accKey)
                     ).withStyle(ChatFormatting.GOLD);
                 }
+            } else if (anyArgChanged) {
+                rebuilt = Component.translatable(key, rewrittenArgs).withStyle(comp.getStyle());
             }
         }
 
