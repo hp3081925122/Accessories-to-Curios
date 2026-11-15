@@ -14,17 +14,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.WeakHashMap;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.minecraftforge.items.ItemHandlerHelper;
 import org.slf4j.Logger;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.type.capability.ICuriosItemHandler;
@@ -76,9 +75,9 @@ public final class LegacyDataMigrator {
             restoreHolderPreferences(holder, root);
         }
 
-        String containersKey = root.contains("accessories_containers", Tag.TAG_COMPOUND)
-                ? "accessories_containers"
-                : (root.contains("AccessoriesContainers", Tag.TAG_COMPOUND) ? "AccessoriesContainers" : null);
+        String containersKey = root.contains("AccessoriesContainers", Tag.TAG_COMPOUND)
+                ? "AccessoriesContainers"
+                : (root.contains("accessories_containers", Tag.TAG_COMPOUND) ? "accessories_containers" : null);
 
         if (containersKey == null) {
             RESTORED_PREFERENCE_CARRIERS.remove(holder);
@@ -91,7 +90,7 @@ public final class LegacyDataMigrator {
             return;
         }
 
-        Optional<ICuriosItemHandler> curiosInvOpt = CuriosApi.getCuriosInventory(entity);
+        Optional<ICuriosItemHandler> curiosInvOpt = CuriosApi.getCuriosInventory(entity).resolve();
         if (curiosInvOpt.isEmpty()) {
             return;
         }
@@ -101,7 +100,6 @@ public final class LegacyDataMigrator {
         }
 
         CompoundTag containersTag = root.getCompound(containersKey);
-        HolderLookup.Provider registries = entity.registryAccess();
         List<ItemStack> overflowStacks = new ArrayList<>();
         int migratedStacks = 0;
         int migratedModifiers = 0;
@@ -121,12 +119,12 @@ public final class LegacyDataMigrator {
                 handlerOpt = curiosInv.getStacksHandler("curio");
             }
 
-            ListTag persistentMods = getListTag(slotTag, "persistent_modifiers", "PersistentModifiers", Tag.TAG_COMPOUND);
+            ListTag persistentMods = getListTag(slotTag, "PersistentModifiers", "persistent_modifiers", Tag.TAG_COMPOUND);
             if (handlerOpt.isPresent() && !persistentMods.isEmpty()) {
                 ICurioStacksHandler stacksHandler = handlerOpt.get();
                 for (int i = 0; i < persistentMods.size(); i++) {
                     AttributeModifier modifier = AttributeModifier.load(persistentMods.getCompound(i));
-                    if (modifier != null && !stacksHandler.getModifiers().containsKey(modifier.id())) {
+                    if (modifier != null && !stacksHandler.getModifiers().containsKey(modifier.getId())) {
                         stacksHandler.addPermanentModifier(modifier);
                         migratedModifiers++;
                     }
@@ -134,17 +132,17 @@ public final class LegacyDataMigrator {
                 stacksHandler.update();
             }
 
-            ListTag itemsList = getListTag(slotTag, "items", "Items", Tag.TAG_COMPOUND);
-            ListTag cosmeticsList = getListTag(slotTag, "cosmetics", "Cosmetics", Tag.TAG_COMPOUND);
+            ListTag itemsList = getListTag(slotTag, "Items", "items", Tag.TAG_COMPOUND);
+            ListTag cosmeticsList = getListTag(slotTag, "Cosmetics", "cosmetics", Tag.TAG_COMPOUND);
             List<Boolean> renderFlags = readRenderOptions(slotTag);
 
             if (handlerOpt.isPresent()) {
                 ICurioStacksHandler stacksHandler = handlerOpt.get();
-                migratedStacks += migrateStackList(itemsList, registries, stacksHandler.getStacks(), renderFlags, stacksHandler.getRenders(), overflowStacks);
-                migratedStacks += migrateStackList(cosmeticsList, registries, stacksHandler.getCosmeticStacks(), List.of(), null, overflowStacks);
+                migratedStacks += migrateStackList(itemsList, stacksHandler.getStacks(), renderFlags, stacksHandler.getRenders(), overflowStacks);
+                migratedStacks += migrateStackList(cosmeticsList, stacksHandler.getCosmeticStacks(), List.of(), null, overflowStacks);
             } else {
-                migratedStacks += collectAllDecodedStacks(itemsList, registries, overflowStacks);
-                migratedStacks += collectAllDecodedStacks(cosmeticsList, registries, overflowStacks);
+                migratedStacks += collectAllDecodedStacks(itemsList, overflowStacks);
+                migratedStacks += collectAllDecodedStacks(cosmeticsList, overflowStacks);
             }
         }
 
@@ -197,20 +195,32 @@ public final class LegacyDataMigrator {
     }
 
     private static void restoreHolderPreferences(AccessoriesHolderImpl holder, CompoundTag root) {
-        String equipKey = root.contains("equip_control", Tag.TAG_STRING)
-                ? "equip_control"
-                : (root.contains("EquipControl", Tag.TAG_STRING) ? "EquipControl" : null);
+        String equipKey = root.contains("EquipControl", Tag.TAG_STRING)
+                ? "EquipControl"
+                : (root.contains("equip_control", Tag.TAG_STRING) ? "equip_control" : null);
         if (equipKey != null) {
             try {
                 holder.equipControl(PlayerEquipControl.valueOf(root.getString(equipKey)));
             } catch (IllegalArgumentException ignored) {
             }
         }
-        if (root.contains("show_unused_slots", Tag.TAG_BYTE)) {
-            holder.showUnusedSlots(root.getBoolean("show_unused_slots"));
+        String unusedKey = root.contains("UnusedSlotsShown", Tag.TAG_BYTE)
+                ? "UnusedSlotsShown"
+                : (root.contains("show_unused_slots", Tag.TAG_BYTE) ? "show_unused_slots" : null);
+        if (unusedKey != null) {
+            holder.showUnusedSlots(root.getBoolean(unusedKey));
         }
-        if (root.contains("show_cosmetics", Tag.TAG_BYTE)) {
-            holder.cosmeticsShown(root.getBoolean("show_cosmetics"));
+        String cosmeticsKey = root.contains("CosmeticsShown", Tag.TAG_BYTE)
+                ? "CosmeticsShown"
+                : (root.contains("show_cosmetics", Tag.TAG_BYTE) ? "show_cosmetics" : null);
+        if (cosmeticsKey != null) {
+            holder.cosmeticsShown(root.getBoolean(cosmeticsKey));
+        }
+        if (root.contains("LinesShown", Tag.TAG_BYTE)) {
+            holder.linesShown(root.getBoolean("LinesShown"));
+        }
+        if (root.contains("UniqueSlotsShown", Tag.TAG_BYTE)) {
+            holder.showUniqueSlots(root.getBoolean("UniqueSlotsShown"));
         }
     }
 
@@ -225,9 +235,9 @@ public final class LegacyDataMigrator {
     }
 
     private static List<Boolean> readRenderOptions(CompoundTag slotTag) {
-        String key = slotTag.contains("render_options", Tag.TAG_LIST)
-                ? "render_options"
-                : (slotTag.contains("RenderOptions", Tag.TAG_LIST) ? "RenderOptions" : null);
+        String key = slotTag.contains("RenderOptions", Tag.TAG_LIST)
+                ? "RenderOptions"
+                : (slotTag.contains("render_options", Tag.TAG_LIST) ? "render_options" : null);
         if (key == null) {
             return List.of();
         }
@@ -235,14 +245,13 @@ public final class LegacyDataMigrator {
         List<Boolean> result = new ArrayList<>(list.size());
         for (int i = 0; i < list.size(); i++) {
             Tag elem = list.get(i);
-            result.add(elem instanceof net.minecraft.nbt.ByteTag byteTag ? byteTag.getAsByte() != 0 : true);
+            result.add(elem instanceof ByteTag byteTag ? byteTag.getAsByte() != 0 : true);
         }
         return result;
     }
 
     private static int migrateStackList(
             ListTag tagList,
-            HolderLookup.Provider registries,
             IDynamicStackHandler targetHandler,
             List<Boolean> sourceRenderFlags,
             NonNullList<Boolean> targetRenders,
@@ -252,7 +261,7 @@ public final class LegacyDataMigrator {
         for (int i = 0; i < tagList.size(); i++) {
             CompoundTag itemTag = tagList.getCompound(i);
             int savedSlot = itemTag.getInt("Slot");
-            ItemStack decoded = decodeStack(registries, itemTag);
+            ItemStack decoded = decodeStack(itemTag);
             if (decoded.isEmpty()) {
                 continue;
             }
@@ -284,14 +293,10 @@ public final class LegacyDataMigrator {
         return migrated;
     }
 
-    private static int collectAllDecodedStacks(
-            ListTag tagList,
-            HolderLookup.Provider registries,
-            List<ItemStack> overflow
-    ) {
+    private static int collectAllDecodedStacks(ListTag tagList, List<ItemStack> overflow) {
         int count = 0;
         for (int i = 0; i < tagList.size(); i++) {
-            ItemStack decoded = decodeStack(registries, tagList.getCompound(i));
+            ItemStack decoded = decodeStack(tagList.getCompound(i));
             if (!decoded.isEmpty()) {
                 overflow.add(decoded);
                 count++;
@@ -300,10 +305,12 @@ public final class LegacyDataMigrator {
         return count;
     }
 
-    private static ItemStack decodeStack(HolderLookup.Provider registries, CompoundTag itemTag) {
-        return ItemStack.CODEC
-                .parse(registries.createSerializationContext(NbtOps.INSTANCE), itemTag)
-                .resultOrPartial(err -> LOGGER.error("[Accessories to Curios] Failed decoding legacy stack {}: {}", itemTag, err))
-                .orElse(ItemStack.EMPTY);
+    private static ItemStack decodeStack(CompoundTag itemTag) {
+        try {
+            return ItemStack.of(itemTag);
+        } catch (Exception ex) {
+            LOGGER.error("[Accessories to Curios] Failed decoding legacy stack {}: {}", itemTag, ex.getMessage());
+            return ItemStack.EMPTY;
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.hp.accessoriestocurios.mixin.client;
 import com.hp.accessoriestocurios.client.BridgeClientEvents;
 import io.wispforest.accessories.api.client.AccessoriesRendererRegistry;
 import io.wispforest.accessories.api.client.AccessoryRenderer;
+import io.wispforest.accessories.api.client.DefaultAccessoryRenderer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(value = AccessoriesRendererRegistry.class, remap = false)
 public abstract class AccessoriesRendererRegistryMixin {
     @Inject(
-            method = "getRenderer(Lnet/minecraft/world/item/ItemStack;)Lio/wispforest/accessories/api/client/AccessoryRenderer;",
+            method = "getRender(Lnet/minecraft/world/item/ItemStack;)Lio/wispforest/accessories/api/client/AccessoryRenderer;",
             at = @At("HEAD"),
             cancellable = true
     )
@@ -21,14 +22,16 @@ public abstract class AccessoriesRendererRegistryMixin {
             ItemStack stack,
             CallbackInfoReturnable<AccessoryRenderer> cir
     ) {
-        AccessoryRenderer override = BridgeClientEvents.resolveOverrideRenderer(stack);
-        if (override != null) {
-            cir.setReturnValue(override);
+        switch (BridgeClientEvents.decideStackRenderer(stack)) {
+            case SUPPRESS_NULL -> cir.setReturnValue(null);
+            case USE_DEFAULT -> cir.setReturnValue(DefaultAccessoryRenderer.INSTANCE);
+            case DELEGATE -> {
+            }
         }
     }
 
     @Inject(
-            method = "getRenderer(Lnet/minecraft/world/item/Item;)Lio/wispforest/accessories/api/client/AccessoryRenderer;",
+            method = "getRender(Lnet/minecraft/world/item/Item;)Lio/wispforest/accessories/api/client/AccessoryRenderer;",
             at = @At("RETURN"),
             cancellable = true
     )

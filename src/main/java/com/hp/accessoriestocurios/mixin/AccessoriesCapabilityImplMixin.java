@@ -67,7 +67,7 @@ public abstract class AccessoriesCapabilityImplMixin {
             ContainerViewManager.rebindContainers(holder, self);
             this.accessoriesToCurios$boundCapability = self;
         }
-        cir.setReturnValue(holder.getSlotContainers());
+        cir.setReturnValue(((AccessoriesHolderImplAccessor) holder).accessoriesToCurios$getSlotContainers());
     }
 
     @Inject(method = "reset", at = @At("HEAD"), cancellable = true)

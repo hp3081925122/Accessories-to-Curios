@@ -113,7 +113,14 @@ gradle-app.setting
 
 # Common working directory
 run/
+run-data/
+mcmodsrepo/
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
 runs/
+
+# Local docs and migration documents (never push to GitHub)
+docs/
+迁移文档.md
+*迁移文档*.md

@@ -10,13 +10,10 @@ import io.wispforest.accessories.api.Accessory;
 import io.wispforest.accessories.api.components.AccessoriesDataComponents;
 import io.wispforest.accessories.api.components.AccessoryItemAttributeModifiers;
 import io.wispforest.accessories.api.components.AccessorySlotValidationComponent;
-import io.wispforest.accessories.api.data.AccessoriesBaseData;
-import io.wispforest.accessories.api.data.AccessoriesTags;
 import io.wispforest.accessories.api.slot.SlotType;
 import io.wispforest.accessories.api.slot.UniqueSlotHandling;
 import io.wispforest.accessories.data.EntitySlotLoader;
 import io.wispforest.accessories.data.SlotTypeLoader;
-import io.wispforest.accessories.impl.AccessoriesCapabilityImpl;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -40,9 +37,9 @@ public final class SlotSynchronizer {
     public static final int UNIVERSAL_CURIO_MIN_ORDER = 10000;
 
     private static final ResourceLocation CURIOS_TAG_VALIDATOR =
-            ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "tag");
+            new ResourceLocation(CuriosApi.MODID, "tag");
     private static final ResourceLocation DEFAULT_CURIO_ICON =
-            ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "slot/empty_curio_slot");
+            new ResourceLocation(CuriosApi.MODID, "slot/empty_curio_slot");
     private static volatile boolean pendingLevelRescan = false;
 
     private SlotSynchronizer() {
@@ -75,8 +72,8 @@ public final class SlotSynchronizer {
                 continue;
             }
             for (ResourceLocation validator : slotType.validators()) {
-                if (!AccessoriesBaseData.TAG_PREDICATE_ID.equals(validator)
-                        && !AccessoriesBaseData.COMPONENT_PREDICATE_ID.equals(validator)) {
+                if (!BridgeSlotValidator.TAG_PREDICATE_ID.equals(validator)
+                        && !BridgeSlotValidator.COMPONENT_PREDICATE_ID.equals(validator)) {
                     hasCustomSlotValidators = true;
                     break;
                 }
@@ -98,12 +95,12 @@ public final class SlotSynchronizer {
             if (stack.isEmpty()) {
                 continue;
             }
-            if (stack.is(AccessoriesTags.ANY_TAG) || stack.is(BridgeSlotValidator.LEGACY_ALL_TAG)) {
+            if (stack.is(BridgeSlotValidator.ANY_TAG) || stack.is(BridgeSlotValidator.LEGACY_ALL_TAG)) {
                 needsUniversalCurioSlot[0] = true;
             }
-            AccessorySlotValidationComponent validation = stack.getOrDefault(
+            AccessorySlotValidationComponent validation = AccessoriesDataComponents.readOrDefault(
                     AccessoriesDataComponents.SLOT_VALIDATION,
-                    AccessorySlotValidationComponent.EMPTY
+                    stack
             );
             if (validation.validSlotOverrides().contains("any")) {
                 needsUniversalCurioSlot[0] = true;
@@ -115,9 +112,9 @@ public final class SlotSynchronizer {
                     usedAccSlots.add(validOverride);
                 }
             }
-            AccessoryItemAttributeModifiers attrMods = stack.getOrDefault(
+            AccessoryItemAttributeModifiers attrMods = AccessoriesDataComponents.readOrDefault(
                     AccessoriesDataComponents.ATTRIBUTES,
-                    AccessoryItemAttributeModifiers.EMPTY
+                    stack
             );
             for (AccessoryItemAttributeModifiers.Entry modEntry : attrMods.modifiers()) {
                 String targetSlot = modEntry.slotName();
@@ -261,7 +258,6 @@ public final class SlotSynchronizer {
             }
         }
         entityAccessor.accessoriesToCurios$setEntitySlots(finalEntityMap.build());
-        AccessoriesCapabilityImpl.clearValidationCache(false);
         BridgeSlotValidator.invalidateCache();
         ContainerViewManager.bumpStructureGeneration();
         LOGGER.debug(

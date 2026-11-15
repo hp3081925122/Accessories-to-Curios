@@ -247,7 +247,7 @@ public final class SlotBridgeMap {
         boolean isClient = level == null || level.isClientSide();
         Optional<ISlotType> curiosTypeOpt = CuriosApi.getSlot(curiosSlot, isClient);
         ResourceLocation icon = curiosTypeOpt.map(ISlotType::getIcon)
-                .orElseGet(() -> ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "slot/empty_curio_slot"));
+                .orElseGet(() -> new ResourceLocation(CuriosApi.MODID, "slot/empty_curio_slot"));
         int order = curiosTypeOpt.map(ISlotType::getOrder).orElse(1000);
         int size = curiosTypeOpt.map(ISlotType::getSize).orElse(1);
         DropRule dropRule = curiosTypeOpt.map(t -> toAccessoriesDropRule(t.getDropRule())).orElse(DropRule.DEFAULT);

@@ -1,22 +1,22 @@
 package com.hp.accessoriestocurios.config;
 
 import java.util.List;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;
 
 public final class BridgeConfig {
     public static final Common COMMON;
-    public static final ModConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec COMMON_SPEC;
 
     public static final Client CLIENT;
-    public static final ModConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
 
     static {
-        Pair<Common, ModConfigSpec> commonPair = new ModConfigSpec.Builder().configure(Common::new);
+        Pair<Common, ForgeConfigSpec> commonPair = new ForgeConfigSpec.Builder().configure(Common::new);
         COMMON = commonPair.getLeft();
         COMMON_SPEC = commonPair.getRight();
 
-        Pair<Client, ModConfigSpec> clientPair = new ModConfigSpec.Builder().configure(Client::new);
+        Pair<Client, ForgeConfigSpec> clientPair = new ForgeConfigSpec.Builder().configure(Client::new);
         CLIENT = clientPair.getLeft();
         CLIENT_SPEC = clientPair.getRight();
     }
@@ -25,12 +25,12 @@ public final class BridgeConfig {
     }
 
     public static final class Common {
-        public final ModConfigSpec.BooleanValue disableAccessoriesMenu;
-        public final ModConfigSpec.BooleanValue autoRegisterUsedSlots;
-        public final ModConfigSpec.BooleanValue migrateLegacyData;
-        public final ModConfigSpec.ConfigValue<List<? extends String>> customSlotMappings;
+        public final ForgeConfigSpec.BooleanValue disableAccessoriesMenu;
+        public final ForgeConfigSpec.BooleanValue autoRegisterUsedSlots;
+        public final ForgeConfigSpec.BooleanValue migrateLegacyData;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> customSlotMappings;
 
-        private Common(ModConfigSpec.Builder builder) {
+        private Common(ForgeConfigSpec.Builder builder) {
             builder.push("bridge");
 
             this.disableAccessoriesMenu = builder
@@ -43,7 +43,7 @@ public final class BridgeConfig {
 
             this.autoRegisterUsedSlots = builder
                     .comment(
-                            "自动检测被模组实际使用的 Accessories 槽位并同步注册绑定到 Curios。",
+                            "自动检测被模组实际使用的 Accessories 栏位并同步注册绑定到 Curios。",
                             "Automatically detect used Accessories slots and register/bind them into Curios."
                     )
                     .translation("accessories_to_curios.configuration.autoRegisterUsedSlots")
@@ -51,7 +51,7 @@ public final class BridgeConfig {
 
             this.migrateLegacyData = builder
                     .comment(
-                            "自动将旧存档中已装备在 Accessories 容器内的饰品、装饰栏与持久槽位修饰符无损迁移到 Curios。",
+                            "自动将旧存档中已装备在 Accessories 容器内的饰品、装饰栏与持久栏位修饰符无损迁移到 Curios。",
                             "Automatically migrate equipped items, cosmetics, and persistent slot modifiers from pre-bridge Accessories saves into Curios."
                     )
                     .translation("accessories_to_curios.configuration.migrateLegacyData")
@@ -59,14 +59,13 @@ public final class BridgeConfig {
 
             this.customSlotMappings = builder
                     .comment(
-                            "自定义槽位映射覆盖列表，格式为 accessories_slot=curios_slot（例如 shoes=feet）。",
+                            "自定义栏位映射覆盖列表，格式为 accessories_slot=curios_slot（例如 shoes=feet）。",
                             "Custom slot mapping overrides in the format accessories_slot=curios_slot (e.g. shoes=feet)."
                     )
                     .translation("accessories_to_curios.configuration.customSlotMappings")
                     .defineListAllowEmpty(
-                            "customSlotMappings",
+                            List.of("customSlotMappings"),
                             List::of,
-                            () -> "hat=head",
                             obj -> obj instanceof String entry && entry.indexOf('=') > 0 && entry.indexOf('=') < entry.length() - 1
                     );
 
@@ -75,11 +74,11 @@ public final class BridgeConfig {
     }
 
     public static final class Client {
-        public final ModConfigSpec.BooleanValue hideAccessoriesUi;
-        public final ModConfigSpec.BooleanValue redirectOpenToCurios;
-        public final ModConfigSpec.BooleanValue enableDefaultAccessoryRenderer;
+        public final ForgeConfigSpec.BooleanValue hideAccessoriesUi;
+        public final ForgeConfigSpec.BooleanValue redirectOpenToCurios;
+        public final ForgeConfigSpec.BooleanValue enableDefaultAccessoryRenderer;
 
-        private Client(ModConfigSpec.Builder builder) {
+        private Client(ForgeConfigSpec.Builder builder) {
             builder.push("client");
 
             this.hideAccessoriesUi = builder

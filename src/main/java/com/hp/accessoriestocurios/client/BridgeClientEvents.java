@@ -5,24 +5,25 @@ import com.hp.accessoriestocurios.bridge.BridgeRuntimeAccess;
 import com.hp.accessoriestocurios.bridge.BridgeSlotValidator;
 import com.hp.accessoriestocurios.bridge.SlotBridgeMap;
 import com.hp.accessoriestocurios.config.BridgeConfig;
+import com.hp.accessoriestocurios.mixin.client.AccessoriesRendererRegistryAccessor;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
 import io.wispforest.accessories.Accessories;
-import io.wispforest.accessories.api.client.AccessoriesRendererRegistry;
 import io.wispforest.accessories.api.client.AccessoryRenderer;
 import io.wispforest.accessories.api.client.DefaultAccessoryRenderer;
-import io.wispforest.accessories.api.client.EmptyRenderer;
 import io.wispforest.accessories.api.components.AccessoriesDataComponents;
-import io.wispforest.accessories.api.components.AccessoryItemAttributeModifiers;
 import io.wispforest.accessories.api.slot.SlotType;
 import io.wispforest.accessories.data.SlotTypeLoader;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
@@ -36,30 +37,35 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.GatherSkippedAttributeTooltipsEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.IEventBus;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import top.theillusivec4.curios.api.client.CuriosRendererRegistry;
+import top.theillusivec4.curios.common.network.NetworkHandler;
 import top.theillusivec4.curios.common.network.client.CPacketOpenCurios;
 
-@Mod(value = AccessoriesToCurios.MOD_ID, dist = Dist.CLIENT)
 public final class BridgeClientEvents {
+    public enum RendererDecision {
+        DELEGATE,
+        SUPPRESS_NULL,
+        USE_DEFAULT
+    }
+
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final AccessoryRenderer SHARED_EMPTY_RENDERER = new EmptyRenderer();
     private static final Set<String> DUPLICATE_OPEN_KEY_NAMES = Set.of(
             "accessories.key.open_accessories_screen",
             "key.aether.open_accessories.desc"
     );
+    private static final Map<Class<?>, List<Field>> ACCESSORY_BUTTON_FIELD_CACHE = new ConcurrentHashMap<>();
 
-    public BridgeClientEvents(IEventBus modEventBus) {
+    private BridgeClientEvents() {
+    }
+
+    public static void register(IEventBus modEventBus) {
         BridgeRuntimeAccess.bindClientAccess(
                 () -> Minecraft.getInstance().level,
                 () -> Minecraft.getInstance().player,
@@ -72,9 +78,8 @@ public final class BridgeClientEvents {
                 BridgeClientEvents::openCuriosScreen,
                 BridgeClientEvents::normalizeTooltipComponents
         );
-        NeoForge.EVENT_BUS.addListener(BridgeClientEvents::onGatherSkippedAttributeTooltips);
-        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, BridgeClientEvents::onScreenInitPost);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeClientEvents::onClientTickPre);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, BridgeClientEvents::onScreenInitPost);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeClientEvents::onClientTick);
     }
 
     public static boolean shouldHideAccessoriesUi() {
@@ -92,7 +97,7 @@ public final class BridgeClientEvents {
             return false;
         }
         ItemStack carried = player.containerMenu != null ? player.containerMenu.getCarried() : ItemStack.EMPTY;
-        PacketDistributor.sendToServer(new CPacketOpenCurios(carried.copy()));
+        NetworkHandler.INSTANCE.sendToServer(new CPacketOpenCurios(carried.copy()));
         return true;
     }
 
@@ -104,40 +109,42 @@ public final class BridgeClientEvents {
         );
     }
 
-    @Nullable
-    public static AccessoryRenderer resolveOverrideRenderer(ItemStack stack) {
+    public static RendererDecision decideStackRenderer(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
-            return SHARED_EMPTY_RENDERER;
+            return RendererDecision.SUPPRESS_NULL;
         }
-        if (stack.has(AccessoriesDataComponents.CUSTOM_RENDERER)
-                || stack.has(AccessoriesDataComponents.RENDER_OVERRIDE)
-                || AccessoriesRendererRegistry.hasRenderer(stack.getItem())) {
-            return null;
+        if (AccessoriesDataComponents.has(AccessoriesDataComponents.RENDER_OVERRIDE, stack)
+                || AccessoriesRendererRegistryAccessor.accessoriesToCurios$getRenderers().containsKey(stack.getItem())) {
+            return RendererDecision.DELEGATE;
         }
         if (CuriosRendererRegistry.getRenderer(stack.getItem()).isPresent()) {
-            return SHARED_EMPTY_RENDERER;
+            return RendererDecision.SUPPRESS_NULL;
         }
         if (!BridgeSlotValidator.isGenuineAccessoriesItem(stack)) {
-            return SHARED_EMPTY_RENDERER;
+            return RendererDecision.SUPPRESS_NULL;
         }
         if (BridgeConfig.CLIENT_SPEC.isLoaded() && !BridgeConfig.CLIENT.enableDefaultAccessoryRenderer.get()) {
-            return SHARED_EMPTY_RENDERER;
+            return RendererDecision.SUPPRESS_NULL;
         }
-        return DefaultAccessoryRenderer.INSTANCE;
+        return RendererDecision.USE_DEFAULT;
     }
 
-    public static AccessoryRenderer filterItemRenderer(Item item, AccessoryRenderer original) {
+    @Nullable
+    public static AccessoryRenderer filterItemRenderer(Item item, @Nullable AccessoryRenderer original) {
         if (original != DefaultAccessoryRenderer.INSTANCE) {
             return original;
         }
+        if (AccessoriesRendererRegistryAccessor.accessoriesToCurios$getRenderers().containsKey(item)) {
+            return original;
+        }
         if (CuriosRendererRegistry.getRenderer(item).isPresent()) {
-            return SHARED_EMPTY_RENDERER;
+            return null;
         }
         if (!BridgeSlotValidator.isGenuineAccessoriesItem(item.getDefaultInstance())) {
-            return SHARED_EMPTY_RENDERER;
+            return null;
         }
         if (BridgeConfig.CLIENT_SPEC.isLoaded() && !BridgeConfig.CLIENT.enableDefaultAccessoryRenderer.get()) {
-            return SHARED_EMPTY_RENDERER;
+            return null;
         }
         return original;
     }
@@ -160,7 +167,7 @@ public final class BridgeClientEvents {
             }
         }
         for (String accSlot : candidates) {
-            String accKey = Accessories.translationKey("slot." + accSlot.replace(":", "."));
+            String accKey = Accessories.translation("slot." + accSlot.replace(":", "."));
             if (I18n.exists(accKey)) {
                 return prefixCosmetic(I18n.get(accKey), isCosmetic);
             }
@@ -189,7 +196,7 @@ public final class BridgeClientEvents {
             }
         }
         for (String accSlot : candidates) {
-            String accKey = Accessories.translationKey("slot." + accSlot.replace(":", "."));
+            String accKey = Accessories.translation("slot." + accSlot.replace(":", "."));
             if (I18n.exists(accKey)) {
                 return accKey;
             }
@@ -273,20 +280,19 @@ public final class BridgeClientEvents {
         return base;
     }
 
-    private static void onGatherSkippedAttributeTooltips(GatherSkippedAttributeTooltipsEvent event) {
-        ItemStack stack = event.getStack();
-        if (!stack.has(AccessoriesDataComponents.ATTRIBUTES)) {
-            return;
-        }
-        AccessoryItemAttributeModifiers component = stack.getOrDefault(
-                AccessoriesDataComponents.ATTRIBUTES,
-                AccessoryItemAttributeModifiers.EMPTY
-        );
-        if (!component.showInTooltip()) {
-            for (AccessoryItemAttributeModifiers.Entry entry : component.modifiers()) {
-                event.skipId(entry.modifier().id());
+    private static List<Field> getAccessoryButtonFields(Class<?> screenClass) {
+        return ACCESSORY_BUTTON_FIELD_CACHE.computeIfAbsent(screenClass, cls -> {
+            List<Field> found = new ArrayList<>();
+            for (Class<?> cur = cls; cur != null && cur != Screen.class && cur != Object.class; cur = cur.getSuperclass()) {
+                for (Field field : cur.getDeclaredFields()) {
+                    if (Button.class.isAssignableFrom(field.getType()) && field.getName().endsWith("accessoryButton")) {
+                        field.setAccessible(true);
+                        found.add(field);
+                    }
+                }
             }
-        }
+            return List.copyOf(found);
+        });
     }
 
     private static void onScreenInitPost(ScreenEvent.Init.Post event) {
@@ -296,6 +302,16 @@ public final class BridgeClientEvents {
         Screen screen = event.getScreen();
         if (!(screen instanceof InventoryScreen) && !(screen instanceof CreativeModeInventoryScreen)) {
             return;
+        }
+        for (Field field : getAccessoryButtonFields(screen.getClass())) {
+            try {
+                Object val = field.get(screen);
+                if (val instanceof GuiEventListener buttonListener) {
+                    event.removeListener(buttonListener);
+                    LOGGER.debug("[Accessories to Curios] Removed injected accessoryButton from {}", screen.getClass().getSimpleName());
+                }
+            } catch (IllegalAccessException ignored) {
+            }
         }
         for (GuiEventListener listener : new ArrayList<>(event.getListenersList())) {
             if (listener == null) {
@@ -310,8 +326,8 @@ public final class BridgeClientEvents {
         }
     }
 
-    private static void onClientTickPre(ClientTickEvent.Pre event) {
-        if (!shouldHideAccessoriesUi()) {
+    private static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.START || !shouldHideAccessoriesUi()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();

@@ -4,7 +4,6 @@ import com.mojang.datafixers.util.Pair;
 import io.wispforest.accessories.impl.ExpandedSimpleContainer;
 import java.util.Iterator;
 import java.util.function.Supplier;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -28,6 +27,10 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
     @Nullable
     private IDynamicStackHandler handler() {
         return this.handlerSupplier != null ? this.handlerSupplier.get() : null;
+    }
+
+    private int maxStackSize(ItemStack stack) {
+        return stack.isEmpty() ? getMaxStackSize() : Math.min(getMaxStackSize(), stack.getMaxStackSize());
     }
 
     @Override
@@ -71,7 +74,7 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
             return;
         }
         ItemStack safe = stack == null ? ItemStack.EMPTY : stack;
-        int limit = getMaxStackSize(safe);
+        int limit = maxStackSize(safe);
         if (!safe.isEmpty() && safe.getCount() > limit) {
             safe = safe.copyWithCount(limit);
         }
@@ -118,10 +121,10 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
             return stack.copy();
         }
         ItemStack remaining = stack.copy();
-        int maxStack = getMaxStackSize(remaining);
+        int maxStack = maxStackSize(remaining);
         for (int i = 0; i < h.getSlots() && !remaining.isEmpty(); i++) {
             ItemStack inSlot = h.getStackInSlot(i);
-            if (!inSlot.isEmpty() && ItemStack.isSameItemSameComponents(inSlot, remaining)) {
+            if (!inSlot.isEmpty() && ItemStack.isSameItemSameTags(inSlot, remaining)) {
                 int transferable = Math.min(remaining.getCount(), maxStack - inSlot.getCount());
                 if (transferable > 0) {
                     ItemStack updated = inSlot.copyWithCount(inSlot.getCount() + transferable);
@@ -145,13 +148,13 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
         if (h == null) {
             return false;
         }
-        int maxStack = getMaxStackSize(stack);
+        int maxStack = maxStackSize(stack);
         for (int i = 0; i < h.getSlots(); i++) {
             ItemStack inSlot = h.getStackInSlot(i);
             if (inSlot.isEmpty()) {
                 return true;
             }
-            if (ItemStack.isSameItemSameComponents(inSlot, stack) && inSlot.getCount() < maxStack) {
+            if (ItemStack.isSameItemSameTags(inSlot, stack) && inSlot.getCount() < maxStack) {
                 return true;
             }
         }
@@ -169,7 +172,6 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
         }
     }
 
-    @Override
     public NonNullList<ItemStack> getItems() {
         IDynamicStackHandler h = handler();
         if (h == null) {
@@ -220,21 +222,21 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
     }
 
     @Override
-    public ListTag createTag(HolderLookup.Provider provider) {
+    public ListTag createTag() {
         ListTag listTag = new ListTag();
         for (int i = 0; i < getContainerSize(); i++) {
             ItemStack itemStack = getItem(i);
             if (!itemStack.isEmpty()) {
                 CompoundTag compoundTag = new CompoundTag();
                 compoundTag.putInt("Slot", i);
-                listTag.add(itemStack.save(provider, compoundTag));
+                listTag.add(itemStack.save(compoundTag));
             }
         }
         return listTag;
     }
 
     @Override
-    public void fromTag(ListTag containerNbt, HolderLookup.Provider provider) {
+    public void fromTag(ListTag containerNbt) {
         IDynamicStackHandler h = handler();
         if (h == null) {
             return;
@@ -245,7 +247,7 @@ public final class CuriosBackedExpandedContainer extends ExpandedSimpleContainer
         for (int i = 0; i < containerNbt.size(); i++) {
             CompoundTag compoundTag = containerNbt.getCompound(i);
             int slot = compoundTag.getInt("Slot");
-            ItemStack stack = parseOptional(provider, compoundTag);
+            ItemStack stack = ItemStack.of(compoundTag);
             if (slot >= 0 && slot < h.getSlots()) {
                 h.setStackInSlot(slot, stack);
             }

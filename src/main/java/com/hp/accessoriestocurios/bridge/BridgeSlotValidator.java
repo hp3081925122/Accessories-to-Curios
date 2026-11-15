@@ -7,14 +7,10 @@ import io.wispforest.accessories.api.Accessory;
 import io.wispforest.accessories.api.components.AccessoriesDataComponents;
 import io.wispforest.accessories.api.components.AccessoryItemAttributeModifiers;
 import io.wispforest.accessories.api.components.AccessorySlotValidationComponent;
-import io.wispforest.accessories.api.data.AccessoriesBaseData;
-import io.wispforest.accessories.api.data.AccessoriesTags;
 import io.wispforest.accessories.api.slot.SlotReference;
 import io.wispforest.accessories.api.slot.SlotType;
-import io.wispforest.accessories.api.slot.SlotTypeReference;
 import io.wispforest.accessories.api.slot.UniqueSlotHandling;
 import io.wispforest.accessories.data.SlotTypeLoader;
-import io.wispforest.accessories.menu.ArmorSlotTypes;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +18,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.LivingEntity;
@@ -35,11 +33,13 @@ import top.theillusivec4.curios.api.SlotResult;
 
 public final class BridgeSlotValidator {
     public static final ResourceLocation PREDICATE_ID =
-            ResourceLocation.fromNamespaceAndPath(AccessoriesToCurios.MOD_ID, "bridge");
-    public static final TagKey<Item> LEGACY_ALL_TAG =
-            TagKey.create(Registries.ITEM, Accessories.of("all"));
+            new ResourceLocation(AccessoriesToCurios.MOD_ID, "bridge");
+    public static final ResourceLocation TAG_PREDICATE_ID = Accessories.of("tag");
+    public static final ResourceLocation COMPONENT_PREDICATE_ID = Accessories.of("component");
+    public static final TagKey<Item> ANY_TAG = AccessoriesAPI.ANY_ACCESSORIES;
+    public static final TagKey<Item> LEGACY_ALL_TAG = AccessoriesAPI.ALL_ACCESSORIES;
     public static final TagKey<Item> CURIOS_WILDCARD_TAG =
-            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "curio"));
+            TagKey.create(Registries.ITEM, new ResourceLocation(CuriosApi.MODID, "curio"));
 
     private static final Set<String> INTERNAL_ARMOR_PROXY_SLOTS = Set.of(
             "accessories:head",
@@ -96,15 +96,7 @@ public final class BridgeSlotValidator {
         if (slotName == null || slotName.isEmpty()) {
             return false;
         }
-        if (INTERNAL_ARMOR_PROXY_SLOTS.contains(slotName)) {
-            return true;
-        }
-        SlotTypeReference head = ArmorSlotTypes.headSlot();
-        if (head != null && ArmorSlotTypes.isArmorType(slotName)) {
-            return true;
-        }
-        SlotTypeReference animalBody = ArmorSlotTypes.animalBody();
-        return animalBody != null && slotName.equals(animalBody.slotName());
+        return INTERNAL_ARMOR_PROXY_SLOTS.contains(slotName);
     }
 
     public static boolean isInternalArmorAccessory(@Nullable Accessory accessory) {
@@ -116,8 +108,13 @@ public final class BridgeSlotValidator {
 
     public static boolean isRealCustomAccessory(@Nullable Accessory accessory) {
         return accessory != null
-                && !AccessoriesAPI.isDefaultAccessory(accessory)
+                && accessory != AccessoriesAPI.defaultAccessory()
                 && !isInternalArmorAccessory(accessory);
+    }
+
+    private static boolean isComponentsTagEmpty(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        return tag == null || !tag.contains("components", Tag.TAG_COMPOUND) || tag.getCompound("components").isEmpty();
     }
 
     public static boolean isGenuineAccessoriesItem(ItemStack stack) {
@@ -135,14 +132,14 @@ public final class BridgeSlotValidator {
                 return true;
             }
             if (classification == CLASS_DEFAULT_COMPONENT_TRUE) {
-                return stack.isComponentsPatchEmpty() || hasAccessoryDataComponents(stack);
+                return isComponentsTagEmpty(stack) || hasAccessoryDataComponents(stack);
             }
-            return !stack.isComponentsPatchEmpty() && hasAccessoryDataComponents(stack);
+            return !isComponentsTagEmpty(stack) && hasAccessoryDataComponents(stack);
         }
         if (hasAccessoryDataComponents(stack)) {
             return true;
         }
-        if (stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG)) {
+        if (stack.is(ANY_TAG) || stack.is(LEGACY_ALL_TAG)) {
             return true;
         }
         for (TagKey<Item> tagKey : DEFAULT_SLOT_TAGS.values()) {
@@ -186,7 +183,7 @@ public final class BridgeSlotValidator {
         if (defaultStack.isEmpty()) {
             return CLASS_BASE_FALSE;
         }
-        if (defaultStack.is(AccessoriesTags.ANY_TAG) || defaultStack.is(LEGACY_ALL_TAG)) {
+        if (defaultStack.is(ANY_TAG) || defaultStack.is(LEGACY_ALL_TAG)) {
             return CLASS_INTRINSIC_TRUE;
         }
         for (SlotType slotType : slotMap.values()) {
@@ -197,21 +194,23 @@ public final class BridgeSlotValidator {
                 return CLASS_INTRINSIC_TRUE;
             }
         }
-        if (hasAccessoryDataComponents(defaultStack)) {
+        if (!isComponentsTagEmpty(defaultStack) && hasAccessoryDataComponents(defaultStack)) {
             return CLASS_DEFAULT_COMPONENT_TRUE;
         }
         return CLASS_BASE_FALSE;
     }
 
     private static boolean hasAccessoryDataComponents(ItemStack stack) {
-        if (stack.has(AccessoriesDataComponents.NESTED_ACCESSORIES)
-                || stack.has(AccessoriesDataComponents.CUSTOM_RENDERER)
-                || stack.has(AccessoriesDataComponents.RENDER_OVERRIDE)) {
+        if (isComponentsTagEmpty(stack)) {
+            return false;
+        }
+        if (AccessoriesDataComponents.has(AccessoriesDataComponents.NESTED_ACCESSORIES, stack)
+                || AccessoriesDataComponents.has(AccessoriesDataComponents.RENDER_OVERRIDE, stack)) {
             return true;
         }
-        AccessorySlotValidationComponent slotValidation = stack.getOrDefault(
+        AccessorySlotValidationComponent slotValidation = AccessoriesDataComponents.readOrDefault(
                 AccessoriesDataComponents.SLOT_VALIDATION,
-                AccessorySlotValidationComponent.EMPTY
+                stack
         );
         for (String validOverride : slotValidation.validSlotOverrides()) {
             if (!isInternalArmorProxySlot(validOverride)) {
@@ -221,9 +220,9 @@ public final class BridgeSlotValidator {
         if (!slotValidation.invalidSlotOverrides().isEmpty()) {
             return true;
         }
-        AccessoryItemAttributeModifiers attributes = stack.getOrDefault(
+        AccessoryItemAttributeModifiers attributes = AccessoriesDataComponents.readOrDefault(
                 AccessoriesDataComponents.ATTRIBUTES,
-                AccessoryItemAttributeModifiers.EMPTY
+                stack
         );
         for (AccessoryItemAttributeModifiers.Entry entry : attributes.modifiers()) {
             if (!isInternalArmorProxySlot(entry.slotName())) {
@@ -234,17 +233,19 @@ public final class BridgeSlotValidator {
     }
 
     public static boolean isPureUniversalAccessoriesItem(ItemStack stack) {
-        AccessorySlotValidationComponent validation = stack.getOrDefault(
-                AccessoriesDataComponents.SLOT_VALIDATION,
-                AccessorySlotValidationComponent.EMPTY
-        );
-        if (!validation.invalidSlotOverrides().isEmpty()) {
-            return false;
+        if (!isComponentsTagEmpty(stack)) {
+            AccessorySlotValidationComponent validation = AccessoriesDataComponents.readOrDefault(
+                    AccessoriesDataComponents.SLOT_VALIDATION,
+                    stack
+            );
+            if (!validation.invalidSlotOverrides().isEmpty()) {
+                return false;
+            }
+            if (validation.validSlotOverrides().contains("any")) {
+                return true;
+            }
         }
-        if (validation.validSlotOverrides().contains("any")) {
-            return true;
-        }
-        return stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG);
+        return stack.is(ANY_TAG) || stack.is(LEGACY_ALL_TAG);
     }
 
     public static boolean onlyMatchesUniqueSlots(ItemStack stack, @Nullable Level level, @Nullable LivingEntity entity) {
@@ -360,10 +361,9 @@ public final class BridgeSlotValidator {
         if (isInternalArmorProxySlot(slotType.name())) {
             return false;
         }
-        AccessorySlotValidationComponent validation = stack.getOrDefault(
-                AccessoriesDataComponents.SLOT_VALIDATION,
-                AccessorySlotValidationComponent.EMPTY
-        );
+        AccessorySlotValidationComponent validation = isComponentsTagEmpty(stack)
+                ? AccessorySlotValidationComponent.EMPTY
+                : AccessoriesDataComponents.readOrDefault(AccessoriesDataComponents.SLOT_VALIDATION, stack);
         if (validation.invalidSlotOverrides().contains(slotType.name())) {
             return false;
         }
@@ -372,9 +372,9 @@ public final class BridgeSlotValidator {
         boolean hadTagValidator = false;
         boolean hadComponentValidator = false;
         for (ResourceLocation validator : slotType.validators()) {
-            if (AccessoriesBaseData.TAG_PREDICATE_ID.equals(validator)) {
+            if (TAG_PREDICATE_ID.equals(validator)) {
                 hadTagValidator = true;
-            } else if (AccessoriesBaseData.COMPONENT_PREDICATE_ID.equals(validator)) {
+            } else if (COMPONENT_PREDICATE_ID.equals(validator)) {
                 hadComponentValidator = true;
             } else {
                 nonWildcardValidators.add(validator);
@@ -394,13 +394,13 @@ public final class BridgeSlotValidator {
             if (stack.is(AccessoriesAPI.getSlotTag(slotType))) {
                 return true;
             }
-            if (allowAnyTag && (stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG))) {
+            if (allowAnyTag && (stack.is(ANY_TAG) || stack.is(LEGACY_ALL_TAG))) {
                 return true;
             }
         }
 
         if (!nonWildcardValidators.isEmpty()) {
-            return AccessoriesAPI.getPredicateResults(nonWildcardValidators, level, entity, slotType, index, stack);
+            return AccessoriesAPI.getPredicateResults(nonWildcardValidators, level, slotType, index, stack);
         }
         return false;
     }
@@ -418,16 +418,18 @@ public final class BridgeSlotValidator {
         if (isInternalArmorProxySlot(accSlotName)) {
             return false;
         }
-        AccessorySlotValidationComponent validation = stack.getOrDefault(
-                AccessoriesDataComponents.SLOT_VALIDATION,
-                AccessorySlotValidationComponent.EMPTY
-        );
-        if (validation.invalidSlotOverrides().contains(accSlotName)) {
-            return false;
-        }
-        if (validation.validSlotOverrides().contains(accSlotName)
-                || (allowAny && validation.validSlotOverrides().contains("any"))) {
-            return true;
+        if (!isComponentsTagEmpty(stack)) {
+            AccessorySlotValidationComponent validation = AccessoriesDataComponents.readOrDefault(
+                    AccessoriesDataComponents.SLOT_VALIDATION,
+                    stack
+            );
+            if (validation.invalidSlotOverrides().contains(accSlotName)) {
+                return false;
+            }
+            if (validation.validSlotOverrides().contains(accSlotName)
+                    || (allowAny && validation.validSlotOverrides().contains("any"))) {
+                return true;
+            }
         }
         ResourceLocation tagId = UniqueSlotHandling.isUniqueSlot(accSlotName)
                 ? ResourceLocation.tryParse(accSlotName)
@@ -435,7 +437,7 @@ public final class BridgeSlotValidator {
         if (tagId != null && stack.is(TagKey.create(Registries.ITEM, tagId))) {
             return true;
         }
-        return allowAny && (stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG));
+        return allowAny && (stack.is(ANY_TAG) || stack.is(LEGACY_ALL_TAG));
     }
 
     private static boolean checkEntityCanEquip(ItemStack stack, @Nullable LivingEntity entity, String slotName, int index) {

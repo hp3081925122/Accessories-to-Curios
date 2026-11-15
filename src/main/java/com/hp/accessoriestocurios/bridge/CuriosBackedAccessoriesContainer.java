@@ -6,14 +6,16 @@ import io.wispforest.accessories.impl.AccessoriesContainerImpl;
 import io.wispforest.accessories.impl.ExpandedSimpleContainer;
 import io.wispforest.endec.SerializationContext;
 import io.wispforest.endec.util.MapCarrier;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.NonNullList;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -64,6 +66,7 @@ public final class CuriosBackedAccessoriesContainer extends AccessoriesContainer
             return Optional.empty();
         }
         return CuriosApi.getCuriosInventory(entity)
+                .resolve()
                 .flatMap(inv -> inv.getStacksHandler(this.curiosSlotId));
     }
 
@@ -137,7 +140,7 @@ public final class CuriosBackedAccessoriesContainer extends AccessoriesContainer
     }
 
     @Override
-    public Map<ResourceLocation, AttributeModifier> getModifiers() {
+    public Map<UUID, AttributeModifier> getModifiers() {
         return resolveStacksHandler().map(ICurioStacksHandler::getModifiers).orElse(Collections.emptyMap());
     }
 
@@ -164,13 +167,13 @@ public final class CuriosBackedAccessoriesContainer extends AccessoriesContainer
     }
 
     @Override
-    public boolean hasModifier(ResourceLocation location) {
-        return resolveStacksHandler().map(h -> h.getModifiers().containsKey(location)).orElse(false);
+    public boolean hasModifier(UUID id) {
+        return resolveStacksHandler().map(h -> h.getModifiers().containsKey(id)).orElse(false);
     }
 
     @Override
-    public void removeModifier(ResourceLocation location) {
-        resolveStacksHandler().ifPresent(h -> h.removeModifier(location));
+    public void removeModifier(UUID id) {
+        resolveStacksHandler().ifPresent(h -> h.removeModifier(id));
     }
 
     @Override
@@ -192,14 +195,23 @@ public final class CuriosBackedAccessoriesContainer extends AccessoriesContainer
     public void write(MapCarrier carrier, SerializationContext ctx, boolean sync) {
         if (sync) {
             carrier.put(SLOT_NAME_KEY, this.accessoriesSlotName);
-            super.write(carrier, ctx, true);
+            carrier.putIfNotNull(ctx, BASE_SIZE_KEY, this.getBaseSize());
+            carrier.put(RENDER_OPTIONS_KEY, new ArrayList<>(this.renderOptions()));
+            carrier.put(CURRENT_SIZE_KEY, this.getSize());
+            carrier.put(ITEMS_KEY, this.liveAccessories.createTag());
+            carrier.put(COSMETICS_KEY, this.liveCosmetics.createTag());
+            Map<UUID, AttributeModifier> mods = this.getModifiers();
+            if (!mods.isEmpty()) {
+                List<CompoundTag> modTags = new ArrayList<>(mods.size());
+                for (AttributeModifier mod : mods.values()) {
+                    modTags.add(mod.save());
+                }
+                carrier.put(MODIFIERS_KEY, modTags);
+            }
         }
     }
 
     @Override
     public void read(MapCarrier carrier, SerializationContext ctx, boolean sync) {
-        if (sync) {
-            super.read(carrier, ctx, true);
-        }
     }
 }

@@ -1,13 +1,12 @@
 package com.hp.accessoriestocurios.mixin;
 
 import com.hp.accessoriestocurios.bridge.LegacyDataMigrator;
+import io.wispforest.accessories.AccessoriesInternals;
 import io.wispforest.accessories.api.AccessoriesAPI;
 import io.wispforest.accessories.api.Accessory;
-import io.wispforest.accessories.impl.AccessoriesCapabilityImpl;
 import io.wispforest.accessories.impl.AccessoriesEventHandler;
-import io.wispforest.accessories.networking.AccessoriesNetworking;
+import io.wispforest.accessories.networking.base.BaseNetworkHandler;
 import io.wispforest.accessories.networking.client.SyncData;
-import java.util.Collection;
 import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -17,7 +16,6 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
@@ -42,7 +40,7 @@ public abstract class AccessoriesEventHandlerMixin {
     private static void accessoriesToCurios$onDeath(
             LivingEntity entity,
             DamageSource source,
-            CallbackInfoReturnable<Collection<ItemStack>> cir
+            CallbackInfoReturnable<List<ItemStack>> cir
     ) {
         cir.setReturnValue(List.of());
     }
@@ -87,16 +85,16 @@ public abstract class AccessoriesEventHandlerMixin {
             @Nullable ServerPlayer player,
             CallbackInfo ci
     ) {
+        BaseNetworkHandler networkHandler = AccessoriesInternals.getNetworkHandler();
         SyncData syncPacket = SyncData.create();
         if (list != null && !list.getPlayers().isEmpty()) {
             for (ServerPlayer entry : list.getPlayers()) {
-                AccessoriesNetworking.sendToPlayer(entry, syncPacket);
+                networkHandler.sendToPlayer(entry, syncPacket);
             }
         } else if (player != null) {
-            AccessoriesNetworking.sendToPlayer(player, syncPacket);
+            networkHandler.sendToPlayer(player, syncPacket);
         }
         AccessoriesEventHandler.dataReloadOccurred = false;
-        AccessoriesCapabilityImpl.clearValidationCache(false);
         ci.cancel();
     }
 
@@ -105,13 +103,12 @@ public abstract class AccessoriesEventHandlerMixin {
             @Nullable LivingEntity entity,
             ItemStack stack,
             List<Component> tooltip,
-            Item.TooltipContext tooltipContext,
             TooltipFlag tooltipType,
             CallbackInfo ci
     ) {
         Accessory accessory = AccessoriesAPI.getOrDefaultAccessory(stack);
         if (accessory != null) {
-            accessory.getExtraTooltip(stack, tooltip, tooltipContext, tooltipType);
+            accessory.getExtraTooltip(stack, tooltip, tooltipType);
         }
         ci.cancel();
     }

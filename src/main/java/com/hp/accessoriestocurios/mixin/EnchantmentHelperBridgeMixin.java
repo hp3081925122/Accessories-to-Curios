@@ -1,7 +1,6 @@
 package com.hp.accessoriestocurios.mixin;
 
 import com.hp.accessoriestocurios.bridge.BridgeCommonEvents;
-import net.minecraft.core.Holder;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -11,32 +10,32 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = EnchantmentHelper.class, priority = 500, remap = false)
+@Mixin(value = EnchantmentHelper.class, priority = 500)
 public abstract class EnchantmentHelperBridgeMixin {
     @Inject(
-            method = "getEnchantmentLevel(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/LivingEntity;)I",
+            method = "getEnchantmentLevel(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I",
             at = @At("HEAD")
     )
     private static void accessoriesToCurios$enterLooting(
-            Holder<Enchantment> enchantment,
+            Enchantment enchantment,
             LivingEntity entity,
             CallbackInfoReturnable<Integer> cir
     ) {
-        if (enchantment.is(Enchantments.LOOTING)) {
+        if (enchantment == Enchantments.MOB_LOOTING) {
             BridgeCommonEvents.enterLootingCalculation();
         }
     }
 
     @Inject(
-            method = "getEnchantmentLevel(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/LivingEntity;)I",
+            method = "getEnchantmentLevel(Lnet/minecraft/world/item/enchantment/Enchantment;Lnet/minecraft/world/entity/LivingEntity;)I",
             at = @At("RETURN")
     )
     private static void accessoriesToCurios$exitLooting(
-            Holder<Enchantment> enchantment,
+            Enchantment enchantment,
             LivingEntity entity,
             CallbackInfoReturnable<Integer> cir
     ) {
-        if (enchantment.is(Enchantments.LOOTING)) {
+        if (enchantment == Enchantments.MOB_LOOTING) {
             BridgeCommonEvents.exitLootingCalculation();
         }
     }

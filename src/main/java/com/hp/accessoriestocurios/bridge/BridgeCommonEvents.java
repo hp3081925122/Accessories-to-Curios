@@ -18,25 +18,20 @@ import io.wispforest.accessories.api.events.SlotStateChange;
 import io.wispforest.accessories.api.menu.AccessoriesBasedSlot;
 import io.wispforest.accessories.api.slot.SlotEntryReference;
 import io.wispforest.accessories.api.slot.SlotReference;
+import io.wispforest.accessories.client.AccessoriesMenu;
+import io.wispforest.accessories.client.gui.AccessoriesInternalSlot;
 import io.wispforest.accessories.impl.AccessoryNestUtils;
-import io.wispforest.accessories.menu.AccessoriesInternalSlot;
-import io.wispforest.accessories.menu.SlotTypeAccessible;
-import io.wispforest.accessories.menu.variants.AccessoriesMenuBase;
-import io.wispforest.accessories.neoforge.AccessoriesForge;
 import it.unimi.dsi.fastutil.Pair;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.fabricmc.fabric.api.util.TriState;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -48,31 +43,29 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.event.config.ModConfigEvent;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.OnDatapackSyncEvent;
-import net.neoforged.neoforge.event.TagsUpdatedEvent;
-import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraftforge.event.OnDatapackSyncEvent;
+import net.minecraftforge.event.TagsUpdatedEvent;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import top.theillusivec4.curios.api.CuriosApi;
 import top.theillusivec4.curios.api.CuriosCapability;
-import top.theillusivec4.curios.api.SlotContext;
 import top.theillusivec4.curios.api.event.CurioChangeEvent;
 import top.theillusivec4.curios.api.event.CurioDropsEvent;
 import top.theillusivec4.curios.api.event.DropRulesEvent;
+import top.theillusivec4.curios.api.type.ICuriosMenu;
 import top.theillusivec4.curios.api.type.capability.ICurio;
 import top.theillusivec4.curios.api.type.capability.ICurioItem;
 import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
 import top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler;
-import top.theillusivec4.curios.common.inventory.container.CuriosContainer;
 import top.theillusivec4.curios.common.inventory.container.CuriosContainerProvider;
 import top.theillusivec4.curios.mixin.CuriosImplMixinHooks;
 
@@ -138,32 +131,19 @@ public final class BridgeCommonEvents {
         return IN_LOOTING_CALC.get();
     }
 
-    public static void registerBridgedEntityCapabilities(RegisterCapabilitiesEvent event) {
-        for (EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
-            if (event.isEntityRegistered(AccessoriesForge.CAPABILITY, entityType)) {
-                continue;
-            }
-            event.registerEntity(
-                    AccessoriesForge.CAPABILITY,
-                    entityType,
-                    (entity, ctx) -> entity instanceof LivingEntity living ? AccessoriesCapability.get(living) : null
-            );
-        }
-    }
-
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(BridgeCommonEvents::onCommonSetup);
         modEventBus.addListener(BridgeCommonEvents::onConfigLoading);
         modEventBus.addListener(BridgeCommonEvents::onConfigReloading);
-        modEventBus.addListener(EventPriority.LOWEST, BridgeCommonEvents::onRegisterCapabilities);
 
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onTagsUpdated);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerAboutToStart);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerStarted);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onDatapackSync);
-        NeoForge.EVENT_BUS.addListener(BridgeCommonEvents::onCurioChange);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onDropRules);
-        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onCurioDrops);
+        MinecraftForge.EVENT_BUS.addGenericListener(ItemStack.class, EventPriority.LOWEST, BridgeCommonEvents::onAttachItemStackCapabilities);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onTagsUpdated);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerAboutToStart);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerStarted);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onDatapackSync);
+        MinecraftForge.EVENT_BUS.addListener(BridgeCommonEvents::onCurioChange);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onDropRules);
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onCurioDrops);
     }
 
     private static void onConfigLoading(ModConfigEvent.Loading event) {
@@ -185,6 +165,22 @@ public final class BridgeCommonEvents {
         ));
     }
 
+    private static void onAttachItemStackCapabilities(AttachCapabilitiesEvent<ItemStack> event) {
+        ItemStack stack = event.getObject();
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        Item item = stack.getItem();
+        if (item instanceof ICurioItem
+                || CuriosImplMixinHooks.getCurioFromRegistry(item).isPresent()
+                || event.getCapabilities().containsKey(CuriosCapability.ID_ITEM)) {
+            return;
+        }
+        if (BridgeSlotValidator.isRealCustomAccessory(AccessoriesAPI.getAccessory(item))) {
+            event.addCapability(CuriosCapability.ID_ITEM, CuriosApi.createCurioProvider(new BridgedCurio(stack)));
+        }
+    }
+
     @Nullable
     public static MenuProvider wrapMenuProviderIfNeeded(
             ServerPlayer player,
@@ -204,20 +200,19 @@ public final class BridgeCommonEvents {
     }
 
     public static boolean shouldRedirectOpenedMenu(Player player, @Nullable AbstractContainerMenu menu) {
-        if (menu == null || menu instanceof CuriosContainer) {
+        if (menu == null || menu instanceof ICuriosMenu) {
             return false;
         }
         if (BridgeConfig.COMMON_SPEC.isLoaded() && !BridgeConfig.COMMON.disableAccessoriesMenu.get()) {
             return false;
         }
-        if (menu instanceof AccessoriesMenuBase base) {
-            return base.targetEntity() == null || base.targetEntity() == player;
+        if (menu instanceof AccessoriesMenu accMenu) {
+            return accMenu.targetEntity() == null || accMenu.targetEntity() == player;
         }
         if (menu instanceof InventoryMenu) {
             for (Slot slot : menu.slots) {
                 if (slot instanceof AccessoriesBasedSlot
                         || slot instanceof AccessoriesInternalSlot
-                        || slot instanceof SlotTypeAccessible
                         || slot.container instanceof CuriosBackedExpandedContainer
                         || slot.getClass().getName().contains("Accessories")) {
                     return true;
@@ -225,26 +220,6 @@ public final class BridgeCommonEvents {
             }
         }
         return false;
-    }
-
-    private static void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
-        int wiredItemCount = 0;
-        for (Item item : BuiltInRegistries.ITEM) {
-            event.registerItem(
-                    CuriosCapability.ITEM,
-                    (stack, ctx) -> {
-                        Item stackItem = stack.getItem();
-                        if (stackItem instanceof ICurioItem || CuriosImplMixinHooks.getCurioFromRegistry(stackItem).isPresent()) {
-                            return null;
-                        }
-                        return BridgeSlotValidator.isGenuineAccessoriesItem(stack) ? new BridgedCurio(stack) : null;
-                    },
-                    item
-            );
-            wiredItemCount++;
-        }
-        LOGGER.debug("[Accessories to Curios] Registered fallback CuriosCapability.ITEM provider across {} items", wiredItemCount);
-
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
@@ -326,15 +301,15 @@ public final class BridgeCommonEvents {
                 continue;
             }
             AccessoryAttributeBuilder activeBuilder = AccessoriesAPI.getAttributeModifiers(stack, eqRef);
-            for (Map.Entry<Holder<Attribute>, Map<ResourceLocation, AttributeModificationData>> attrEntry : activeBuilder.exclusiveAttributes().entrySet()) {
-                Holder<Attribute> attribute = attrEntry.getKey();
+            for (Map.Entry<Attribute, Map<ResourceLocation, AttributeModificationData>> attrEntry : activeBuilder.exclusiveAttributes().entrySet()) {
+                Attribute attribute = attrEntry.getKey();
                 AttributeInstance instance = entity.getAttribute(attribute);
                 if (instance == null) {
                     continue;
                 }
                 for (AttributeModificationData modData : attrEntry.getValue().values()) {
                     AttributeModifier mod = modData.modifier();
-                    if (!instance.hasModifier(mod.id())) {
+                    if (!instance.hasModifier(mod)) {
                         instance.addTransientModifier(mod);
                     }
                 }
@@ -350,10 +325,6 @@ public final class BridgeCommonEvents {
         if (lastNestData == null && currentNestData == null) {
             return;
         }
-        Map<Integer, SlotStateChange> currentNestChanges = currentNestData != null
-                ? currentNestData.slotChanges()
-                : new HashMap<>();
-
         List<Map.Entry<SlotEntryReference, Accessory>> lastInner = lastNestData != null
                 ? List.copyOf(lastNestData.getMap(slotReference).entrySet())
                 : List.of();
@@ -365,21 +336,23 @@ public final class BridgeCommonEvents {
         for (int i = 0; i < maxLen; i++) {
             Map.Entry<SlotEntryReference, Accessory> lastEntry = i < lastInner.size() ? lastInner.get(i) : null;
             Map.Entry<SlotEntryReference, Accessory> currentEntry = i < currentInner.size() ? currentInner.get(i) : null;
-            SlotStateChange changeType = currentNestChanges.getOrDefault(i, SlotStateChange.REPLACEMENT);
 
             if (lastEntry == null && currentEntry != null) {
                 SlotEntryReference curRef = currentEntry.getKey();
-                fireInnerStackChange(curRef.reference(), ItemStack.EMPTY, curRef.stack(), changeType);
+                fireInnerStackChange(curRef.reference(), ItemStack.EMPTY, curRef.stack(), SlotStateChange.REPLACEMENT);
                 fireRecursiveNestChanges(slotReference, null, AccessoryNestUtils.getData(curRef.stack()));
             } else if (currentEntry == null && lastEntry != null) {
                 SlotEntryReference prevRef = lastEntry.getKey();
-                fireInnerStackChange(prevRef.reference(), prevRef.stack(), ItemStack.EMPTY, changeType);
+                fireInnerStackChange(prevRef.reference(), prevRef.stack(), ItemStack.EMPTY, SlotStateChange.REPLACEMENT);
                 fireRecursiveNestChanges(slotReference, AccessoryNestUtils.getData(prevRef.stack()), null);
             } else if (lastEntry != null) {
                 SlotEntryReference prevRef = lastEntry.getKey();
                 SlotEntryReference curRef = currentEntry.getKey();
                 if (!ItemStack.matches(prevRef.stack(), curRef.stack())) {
-                    fireInnerStackChange(prevRef.reference(), prevRef.stack(), curRef.stack(), changeType);
+                    SlotStateChange innerChange = !ItemStack.isSameItem(prevRef.stack(), curRef.stack())
+                            ? SlotStateChange.REPLACEMENT
+                            : SlotStateChange.MUTATION;
+                    fireInnerStackChange(prevRef.reference(), prevRef.stack(), curRef.stack(), innerChange);
                     fireRecursiveNestChanges(
                             slotReference,
                             AccessoryNestUtils.getData(prevRef.stack()),
@@ -388,7 +361,6 @@ public final class BridgeCommonEvents {
                 }
             }
         }
-        currentNestChanges.clear();
     }
 
     private static void fireInnerStackChange(
@@ -462,7 +434,7 @@ public final class BridgeCommonEvents {
                 }
                 DropRule resolved = OnDropCallback.getAlternativeRule(pair.left(), innerStack, ref, source);
                 if (resolved == DropRule.DESTROY
-                        || (resolved == DropRule.DEFAULT && EnchantmentHelper.has(innerStack, EnchantmentEffectComponents.PREVENT_EQUIPMENT_DROP))) {
+                        || (resolved == DropRule.DEFAULT && EnchantmentHelper.hasVanishingCurse(innerStack))) {
                     nest.setInnerStack(droppedStack, i, ItemStack.EMPTY);
                     modified = true;
                 }

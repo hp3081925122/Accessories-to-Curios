@@ -33,7 +33,7 @@ public final class ContainerViewManager {
     }
 
     public static int getCuriosHandlerCount(LivingEntity entity) {
-        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY);
+        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY).resolve().orElse(null);
         return inv != null ? inv.getCurios().size() : 0;
     }
 
@@ -44,7 +44,7 @@ public final class ContainerViewManager {
         if (!CuriosApi.getEntitySlots(entity).isEmpty()) {
             return true;
         }
-        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY);
+        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY).resolve().orElse(null);
         return inv != null && !inv.getCurios().isEmpty();
     }
 
@@ -113,7 +113,6 @@ public final class ContainerViewManager {
             backingMap.clear();
             backingMap.putAll(desired);
         }
-        accessor.accessoriesToCurios$setValidSlotTypes(null);
     }
 
     private static String pickUniqueContainerName(

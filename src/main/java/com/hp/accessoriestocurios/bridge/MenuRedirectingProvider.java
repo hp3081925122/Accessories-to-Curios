@@ -8,7 +8,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
-import top.theillusivec4.curios.common.inventory.container.CuriosContainer;
+import top.theillusivec4.curios.common.inventory.container.CuriosContainerProvider;
 
 public final class MenuRedirectingProvider implements MenuProvider {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -37,7 +37,7 @@ public final class MenuRedirectingProvider implements MenuProvider {
                     created.getClass().getName(),
                     player.getScoreboardName()
             );
-            return new CuriosContainer(containerId, playerInventory);
+            return new CuriosContainerProvider().createMenu(containerId, playerInventory, player);
         }
         return created;
     }

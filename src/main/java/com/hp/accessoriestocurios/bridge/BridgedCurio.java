@@ -4,31 +4,38 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import io.wispforest.accessories.api.AccessoriesAPI;
 import io.wispforest.accessories.api.Accessory;
+import io.wispforest.accessories.api.AccessoryNest;
 import io.wispforest.accessories.api.SoundEventData;
 import io.wispforest.accessories.api.attributes.AccessoryAttributeBuilder;
 import io.wispforest.accessories.api.events.OnDropCallback;
 import io.wispforest.accessories.api.events.extra.AllowWalkingOnSnow;
 import io.wispforest.accessories.api.events.extra.EndermanMasked;
+import io.wispforest.accessories.api.events.extra.FortuneAdjustment;
+import io.wispforest.accessories.api.events.extra.LootingAdjustment;
 import io.wispforest.accessories.api.events.extra.PiglinNeutralInducer;
 import io.wispforest.accessories.api.slot.ExtraSlotTypeProperties;
 import io.wispforest.accessories.api.slot.SlotReference;
 import io.wispforest.accessories.api.slot.SlotType;
+import io.wispforest.accessories.impl.AccessoryNestUtils;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import net.fabricmc.fabric.api.util.TriState;
-import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.monster.EnderMan;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.loot.LootContext;
+import org.jetbrains.annotations.Nullable;
 import top.theillusivec4.curios.api.SlotAttribute;
 import top.theillusivec4.curios.api.SlotContext;
 import top.theillusivec4.curios.api.type.capability.ICurio;
@@ -137,7 +144,7 @@ public final class BridgedCurio implements ICurio {
         SlotReference ref = SlotBridgeMap.toSlotReference(slotContext);
         SoundEventData sound = this.accessory().getEquipSound(this.stack, ref);
         if (sound != null) {
-            return new SoundInfo(sound.event().value(), sound.volume(), sound.pitch());
+            return new SoundInfo(sound.event(), sound.volume(), sound.pitch());
         }
         return ICurio.super.getEquipSound(slotContext);
     }
@@ -153,10 +160,11 @@ public final class BridgedCurio implements ICurio {
     }
 
     @Override
-    public Multimap<Holder<Attribute>, AttributeModifier> getAttributeModifiers(SlotContext slotContext, ResourceLocation id) {
-        Multimap<Holder<Attribute>, AttributeModifier> result = LinkedHashMultimap.create();
+    public Multimap<Attribute, AttributeModifier> getAttributeModifiers(SlotContext slotContext, UUID uuid) {
+        Multimap<Attribute, AttributeModifier> result = LinkedHashMultimap.create();
         LivingEntity entity = slotContext.entity();
-        boolean isTooltipQuery = entity == null || slotContext.index() < 0;
+        UUID tooltipProbeUuid = UUID.nameUUIDFromBytes(slotContext.identifier().getBytes(StandardCharsets.UTF_8));
+        boolean isTooltipQuery = entity == null || slotContext.index() < 0 || tooltipProbeUuid.equals(uuid);
         LivingEntity contextEntity = entity != null ? entity : BridgeRuntimeAccess.getClientPlayer();
         String accSlot = SlotBridgeMap.resolveContainerSlotName(contextEntity, slotContext.identifier());
         int slotIndex = Math.max(0, slotContext.index());
@@ -169,7 +177,7 @@ public final class BridgedCurio implements ICurio {
                 isTooltipQuery
         );
 
-        Multimap<Holder<Attribute>, AttributeModifier> regularModifiers = builder.getAttributeModifiers(true);
+        Multimap<Attribute, AttributeModifier> regularModifiers = builder.getAttributeModifiers(true);
         result.putAll(regularModifiers);
 
         for (Map.Entry<String, AttributeModifier> entry : builder.getSlotModifiers().entries()) {
@@ -181,12 +189,12 @@ public final class BridgedCurio implements ICurio {
     }
 
     @Override
-    public List<Component> getSlotsTooltip(List<Component> tooltips, Item.TooltipContext context) {
+    public List<Component> getSlotsTooltip(List<Component> tooltips) {
         return BridgeRuntimeAccess.normalizeCurioTooltips(tooltips);
     }
 
     @Override
-    public List<Component> getAttributesTooltip(List<Component> tooltips, Item.TooltipContext context) {
+    public List<Component> getAttributesTooltip(List<Component> tooltips) {
         List<Component> normalized = BridgeRuntimeAccess.normalizeCurioTooltips(tooltips);
         LivingEntity clientPlayer = BridgeRuntimeAccess.getClientPlayer();
         Level level = BridgeRuntimeAccess.resolveLevel(clientPlayer);
@@ -194,7 +202,7 @@ public final class BridgedCurio implements ICurio {
         List<Component> extra = new ArrayList<>();
         List<SlotType> slotTypes = new ArrayList<>();
         if (level != null) {
-            for (SlotType st : AccessoriesAPI.getStackSlotTypes(level, clientPlayer, this.stack)) {
+            for (SlotType st : AccessoriesAPI.getStackSlotTypes(level, this.stack)) {
                 if (!BridgeSlotValidator.isInternalArmorProxySlot(st.name())) {
                     slotTypes.add(st);
                 }
@@ -205,7 +213,7 @@ public final class BridgedCurio implements ICurio {
         }
         for (SlotType slotType : slotTypes) {
             List<Component> slotExtra = new ArrayList<>();
-            this.accessory().getAttributesTooltip(this.stack, slotType, slotExtra, context, flag);
+            this.accessory().getAttributesTooltip(this.stack, slotType, slotExtra, flag);
             for (Component line : slotExtra) {
                 if (!extra.contains(line)) {
                     extra.add(line);
@@ -221,7 +229,7 @@ public final class BridgedCurio implements ICurio {
     }
 
     @Override
-    public DropRule getDropRule(SlotContext slotContext, DamageSource source, boolean recentlyHit) {
+    public DropRule getDropRule(SlotContext slotContext, DamageSource source, int lootingLevel, boolean recentlyHit) {
         SlotReference ref = SlotBridgeMap.toSlotReference(slotContext);
         io.wispforest.accessories.api.DropRule baseRule = this.accessory().getDropRule(this.stack, ref, source);
         io.wispforest.accessories.api.DropRule resolved = OnDropCallback.getAlternativeRule(baseRule, this.stack, ref, source);
@@ -232,6 +240,50 @@ public final class BridgedCurio implements ICurio {
             return DropRule.ALWAYS_KEEP;
         }
         return SlotBridgeMap.toCuriosDropRule(resolved);
+    }
+
+    @Override
+    public int getLootingLevel(SlotContext slotContext, DamageSource source, LivingEntity target, int baseLooting) {
+        SlotReference ref = SlotBridgeMap.toSlotReference(slotContext);
+        int[] bonus = new int[]{ICurio.super.getLootingLevel(slotContext, source, target, baseLooting)};
+        if (this.accessory() instanceof AccessoryNest) {
+            AccessoryNestUtils.recursiveStackConsumption(this.stack, ref, (innerStack, innerRef) -> {
+                if (innerStack != this.stack) {
+                    bonus[0] += EnchantmentHelper.getTagEnchantmentLevel(Enchantments.MOB_LOOTING, innerStack);
+                }
+            });
+        }
+        AccessoryNestUtils.recursiveStackConsumption(this.stack, ref, (entryStack, entryRef) -> {
+            Accessory acc = AccessoriesAPI.getOrDefaultAccessory(entryStack);
+            if (acc instanceof LootingAdjustment adjustment) {
+                bonus[0] += adjustment.getLootingAdjustment(entryStack, entryRef, target, source, baseLooting + bonus[0]);
+            }
+            bonus[0] += LootingAdjustment.EVENT.invoker().getLootingAdjustment(entryStack, entryRef, target, source, baseLooting + bonus[0]);
+        });
+        return bonus[0];
+    }
+
+    @Override
+    public int getFortuneLevel(SlotContext slotContext, @Nullable LootContext lootContext) {
+        SlotReference ref = SlotBridgeMap.toSlotReference(slotContext);
+        int[] bonus = new int[]{ICurio.super.getFortuneLevel(slotContext, lootContext)};
+        if (this.accessory() instanceof AccessoryNest) {
+            AccessoryNestUtils.recursiveStackConsumption(this.stack, ref, (innerStack, innerRef) -> {
+                if (innerStack != this.stack) {
+                    bonus[0] += EnchantmentHelper.getTagEnchantmentLevel(Enchantments.BLOCK_FORTUNE, innerStack);
+                }
+            });
+        }
+        if (lootContext == null) {
+            AccessoryNestUtils.recursiveStackConsumption(this.stack, ref, (entryStack, entryRef) -> {
+                Accessory acc = AccessoriesAPI.getOrDefaultAccessory(entryStack);
+                if (acc instanceof FortuneAdjustment adjustment) {
+                    bonus[0] += adjustment.getFortuneAdjustment(entryStack, entryRef, null, bonus[0]);
+                }
+                bonus[0] += FortuneAdjustment.EVENT.invoker().getFortuneAdjustment(entryStack, entryRef, null, bonus[0]);
+            });
+        }
+        return bonus[0];
     }
 
     @Override
