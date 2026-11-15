@@ -44,18 +44,37 @@ public final class SlotBridgeMap {
             "curio", "any"
     );
 
+    private static final MappingSnapshot EMPTY_SNAPSHOT = new MappingSnapshot(Map.of(), Map.of(), Map.of());
+    private static volatile MappingSnapshot cachedSnapshot;
+
+    private record MappingSnapshot(
+            Map<String, String> accToCurios,
+            Map<String, String> firstCuriosToAcc,
+            Map<String, List<String>> allCuriosToAcc
+    ) {
+    }
+
     private SlotBridgeMap() {
     }
 
-    public static Map<String, String> getCustomAccToCurios() {
+    public static void invalidateCache() {
+        cachedSnapshot = null;
+    }
+
+    private static MappingSnapshot getSnapshot() {
         if (!BridgeConfig.COMMON_SPEC.isLoaded()) {
-            return Map.of();
+            return EMPTY_SNAPSHOT;
+        }
+        MappingSnapshot snapshot = cachedSnapshot;
+        if (snapshot != null) {
+            return snapshot;
         }
         List<? extends String> entries = BridgeConfig.COMMON.customSlotMappings.get();
         if (entries.isEmpty()) {
-            return Map.of();
+            cachedSnapshot = EMPTY_SNAPSHOT;
+            return EMPTY_SNAPSHOT;
         }
-        Map<String, String> map = new LinkedHashMap<>();
+        Map<String, String> accToCur = new LinkedHashMap<>();
         for (String raw : entries) {
             if (raw == null) {
                 continue;
@@ -67,17 +86,41 @@ public final class SlotBridgeMap {
             String acc = raw.substring(0, idx).trim();
             String cur = sanitizeCuriosId(raw.substring(idx + 1).trim());
             if (!acc.isEmpty() && !cur.isEmpty()) {
-                map.put(acc, cur);
+                accToCur.put(acc, cur);
             }
         }
-        return map;
+        if (accToCur.isEmpty()) {
+            cachedSnapshot = EMPTY_SNAPSHOT;
+            return EMPTY_SNAPSHOT;
+        }
+        Map<String, String> firstCurToAcc = new LinkedHashMap<>();
+        Map<String, List<String>> multiCurToAcc = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : accToCur.entrySet()) {
+            firstCurToAcc.putIfAbsent(entry.getValue(), entry.getKey());
+            multiCurToAcc.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(entry.getKey());
+        }
+        Map<String, List<String>> immutableMulti = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : multiCurToAcc.entrySet()) {
+            immutableMulti.put(entry.getKey(), List.copyOf(entry.getValue()));
+        }
+        MappingSnapshot built = new MappingSnapshot(
+                Map.copyOf(accToCur),
+                Map.copyOf(firstCurToAcc),
+                Map.copyOf(immutableMulti)
+        );
+        cachedSnapshot = built;
+        return built;
+    }
+
+    public static Map<String, String> getCustomAccToCurios() {
+        return getSnapshot().accToCurios();
     }
 
     public static String toCuriosSlot(String accessoriesSlot) {
         if (accessoriesSlot == null || accessoriesSlot.isEmpty()) {
             return "curio";
         }
-        String custom = getCustomAccToCurios().get(accessoriesSlot);
+        String custom = getSnapshot().accToCurios().get(accessoriesSlot);
         if (custom != null) {
             return custom;
         }
@@ -92,10 +135,9 @@ public final class SlotBridgeMap {
         if (curiosSlot == null || curiosSlot.isEmpty()) {
             return "any";
         }
-        for (Map.Entry<String, String> entry : getCustomAccToCurios().entrySet()) {
-            if (entry.getValue().equals(curiosSlot)) {
-                return entry.getKey();
-            }
+        String custom = getSnapshot().firstCuriosToAcc().get(curiosSlot);
+        if (custom != null) {
+            return custom;
         }
         String builtin = BUILTIN_CURIOS_TO_ACC.get(curiosSlot);
         if (builtin != null) {
@@ -123,12 +165,9 @@ public final class SlotBridgeMap {
     }
 
     public static List<String> getCandidateAccessoriesSlots(String curiosSlot, @Nullable Level level) {
-        Set<String> candidates = new LinkedHashSet<>();
-        for (Map.Entry<String, String> entry : getCustomAccToCurios().entrySet()) {
-            if (entry.getValue().equals(curiosSlot)) {
-                candidates.add(entry.getKey());
-            }
-        }
+        Set<String> candidates = new LinkedHashSet<>(
+                getSnapshot().allCuriosToAcc().getOrDefault(curiosSlot, List.of())
+        );
         String mapped = toAccessoriesSlot(curiosSlot);
         if (!"any".equals(mapped)) {
             candidates.add(mapped);

@@ -10,23 +10,31 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.world.entity.LivingEntity;
 import top.theillusivec4.curios.api.CuriosApi;
+import top.theillusivec4.curios.api.CuriosCapability;
 import top.theillusivec4.curios.api.type.ISlotType;
+import top.theillusivec4.curios.api.type.capability.ICuriosItemHandler;
 import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
 
 public final class ContainerViewManager {
-    private static int structureGeneration = 0;
+    private static final AtomicInteger STRUCTURE_GENERATION = new AtomicInteger(1);
 
     private ContainerViewManager() {
     }
 
     public static void bumpStructureGeneration() {
-        structureGeneration++;
+        STRUCTURE_GENERATION.incrementAndGet();
     }
 
     public static int currentStructureGeneration() {
-        return structureGeneration;
+        return STRUCTURE_GENERATION.get();
+    }
+
+    public static int getCuriosHandlerCount(LivingEntity entity) {
+        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY);
+        return inv != null ? inv.getCurios().size() : 0;
     }
 
     public static boolean hasAnyEntitySlots(LivingEntity entity) {
@@ -36,9 +44,8 @@ public final class ContainerViewManager {
         if (!CuriosApi.getEntitySlots(entity).isEmpty()) {
             return true;
         }
-        return CuriosApi.getCuriosInventory(entity)
-                .map(inv -> !inv.getCurios().isEmpty())
-                .orElse(false);
+        ICuriosItemHandler inv = entity.getCapability(CuriosCapability.INVENTORY);
+        return inv != null && !inv.getCurios().isEmpty();
     }
 
     public static void rebindContainers(AccessoriesHolderImpl holder, AccessoriesCapability capability) {

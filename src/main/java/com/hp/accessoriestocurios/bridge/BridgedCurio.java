@@ -78,6 +78,12 @@ public final class BridgedCurio implements ICurio {
         }
         SlotReference ref = SlotBridgeMap.toSlotReference(slotContext);
         this.accessory().onUnequip(this.stack, ref);
+        BridgeCommonEvents.reapplyRemainingExclusiveModifiers(
+                slotContext.entity(),
+                this.stack,
+                slotContext.identifier(),
+                slotContext.index()
+        );
     }
 
     @Override

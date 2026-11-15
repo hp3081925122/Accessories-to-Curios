@@ -16,9 +16,11 @@ import io.wispforest.accessories.api.slot.UniqueSlotHandling;
 import io.wispforest.accessories.data.SlotTypeLoader;
 import io.wispforest.accessories.menu.ArmorSlotTypes;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -62,7 +64,32 @@ public final class BridgeSlotValidator {
             Map.entry("wrist", 1)
     );
 
+    private static final byte CLASS_BASE_FALSE = 0;
+    private static final byte CLASS_DEFAULT_COMPONENT_TRUE = 1;
+    private static final byte CLASS_INTRINSIC_TRUE = 2;
+
+    private static final Map<String, TagKey<Item>> DEFAULT_SLOT_TAGS;
+    private static final Map<Item, Byte> SERVER_ITEM_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Item, Byte> CLIENT_ITEM_CACHE = new ConcurrentHashMap<>();
+    private static volatile Map<String, SlotType> lastServerSlotMap;
+    private static volatile Map<String, SlotType> lastClientSlotMap;
+
+    static {
+        Map<String, TagKey<Item>> defaultTags = new LinkedHashMap<>();
+        for (String defaultSlot : DEFAULT_ACCESSORIES_SLOT_AMOUNTS.keySet()) {
+            defaultTags.put(defaultSlot, TagKey.create(Registries.ITEM, Accessories.of(defaultSlot)));
+        }
+        DEFAULT_SLOT_TAGS = Map.copyOf(defaultTags);
+    }
+
     private BridgeSlotValidator() {
+    }
+
+    public static void invalidateCache() {
+        SERVER_ITEM_CACHE.clear();
+        CLIENT_ITEM_CACHE.clear();
+        lastServerSlotMap = null;
+        lastClientSlotMap = null;
     }
 
     public static boolean isInternalArmorProxySlot(@Nullable String slotName) {
@@ -97,10 +124,86 @@ public final class BridgeSlotValidator {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
-        Accessory explicit = AccessoriesAPI.getAccessory(stack);
-        if (isRealCustomAccessory(explicit)) {
+        Item item = stack.getItem();
+        if (isRealCustomAccessory(AccessoriesAPI.getAccessory(item))) {
             return true;
         }
+        Level level = BridgeRuntimeAccess.resolveLevel(null);
+        if (level != null) {
+            byte classification = classifyBaseItem(item, level);
+            if (classification == CLASS_INTRINSIC_TRUE) {
+                return true;
+            }
+            if (classification == CLASS_DEFAULT_COMPONENT_TRUE) {
+                return stack.isComponentsPatchEmpty() || hasAccessoryDataComponents(stack);
+            }
+            return !stack.isComponentsPatchEmpty() && hasAccessoryDataComponents(stack);
+        }
+        if (hasAccessoryDataComponents(stack)) {
+            return true;
+        }
+        if (stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG)) {
+            return true;
+        }
+        for (TagKey<Item> tagKey : DEFAULT_SLOT_TAGS.values()) {
+            if (stack.is(tagKey)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static byte classifyBaseItem(Item item, Level level) {
+        Map<String, SlotType> slotMap = SlotTypeLoader.getSlotTypes(level);
+        Map<Item, Byte> cache;
+        if (level.isClientSide()) {
+            if (lastClientSlotMap != slotMap) {
+                lastClientSlotMap = slotMap;
+                CLIENT_ITEM_CACHE.clear();
+            }
+            cache = CLIENT_ITEM_CACHE;
+        } else {
+            if (lastServerSlotMap != slotMap) {
+                lastServerSlotMap = slotMap;
+                SERVER_ITEM_CACHE.clear();
+            }
+            cache = SERVER_ITEM_CACHE;
+        }
+        Byte cached = cache.get(item);
+        if (cached != null) {
+            return cached;
+        }
+        byte computed = computeBaseClassification(item, slotMap);
+        cache.put(item, computed);
+        return computed;
+    }
+
+    private static byte computeBaseClassification(Item item, Map<String, SlotType> slotMap) {
+        if (isRealCustomAccessory(AccessoriesAPI.getAccessory(item))) {
+            return CLASS_INTRINSIC_TRUE;
+        }
+        ItemStack defaultStack = item.getDefaultInstance();
+        if (defaultStack.isEmpty()) {
+            return CLASS_BASE_FALSE;
+        }
+        if (defaultStack.is(AccessoriesTags.ANY_TAG) || defaultStack.is(LEGACY_ALL_TAG)) {
+            return CLASS_INTRINSIC_TRUE;
+        }
+        for (SlotType slotType : slotMap.values()) {
+            if (isInternalArmorProxySlot(slotType.name())) {
+                continue;
+            }
+            if (defaultStack.is(AccessoriesAPI.getSlotTag(slotType))) {
+                return CLASS_INTRINSIC_TRUE;
+            }
+        }
+        if (hasAccessoryDataComponents(defaultStack)) {
+            return CLASS_DEFAULT_COMPONENT_TRUE;
+        }
+        return CLASS_BASE_FALSE;
+    }
+
+    private static boolean hasAccessoryDataComponents(ItemStack stack) {
         if (stack.has(AccessoriesDataComponents.NESTED_ACCESSORIES)
                 || stack.has(AccessoriesDataComponents.CUSTOM_RENDERER)
                 || stack.has(AccessoriesDataComponents.RENDER_OVERRIDE)) {
@@ -125,27 +228,6 @@ public final class BridgeSlotValidator {
         for (AccessoryItemAttributeModifiers.Entry entry : attributes.modifiers()) {
             if (!isInternalArmorProxySlot(entry.slotName())) {
                 return true;
-            }
-        }
-        if (stack.is(AccessoriesTags.ANY_TAG) || stack.is(LEGACY_ALL_TAG)) {
-            return true;
-        }
-        Level level = BridgeRuntimeAccess.resolveLevel(null);
-        if (level != null) {
-            for (SlotType slotType : SlotTypeLoader.getSlotTypes(level).values()) {
-                if (isInternalArmorProxySlot(slotType.name())) {
-                    continue;
-                }
-                if (stack.is(AccessoriesAPI.getSlotTag(slotType))) {
-                    return true;
-                }
-            }
-        } else {
-            for (String defaultSlot : DEFAULT_ACCESSORIES_SLOT_AMOUNTS.keySet()) {
-                TagKey<Item> tagKey = TagKey.create(Registries.ITEM, Accessories.of(defaultSlot));
-                if (stack.is(tagKey)) {
-                    return true;
-                }
             }
         }
         return false;

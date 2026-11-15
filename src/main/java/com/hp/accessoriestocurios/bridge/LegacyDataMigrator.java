@@ -9,8 +9,11 @@ import io.wispforest.accessories.impl.AccessoriesHolderImpl;
 import io.wispforest.accessories.impl.PlayerEquipControl;
 import io.wispforest.endec.util.MapCarrier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.WeakHashMap;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +33,8 @@ import top.theillusivec4.curios.api.type.inventory.IDynamicStackHandler;
 
 public final class LegacyDataMigrator {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Map<AccessoriesHolderImpl, CompoundTag> RESTORED_PREFERENCE_CARRIERS =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     private LegacyDataMigrator() {
     }
@@ -42,36 +47,47 @@ public final class LegacyDataMigrator {
             return;
         }
         AccessoriesHolderImplAccessor accessor = (AccessoriesHolderImplAccessor) holder;
-
         drainInvalidStacks(entity, holder);
+        if (!accessor.accessoriesToCurios$isLoadedFromTag()) {
+            return;
+        }
 
         MapCarrier carrier = accessor.accessoriesToCurios$getCarrier();
         if (!(carrier instanceof NbtMapCarrier nbtCarrier)) {
-            if (accessor.accessoriesToCurios$isLoadedFromTag()) {
-                accessor.accessoriesToCurios$setLoadedFromTag(false);
-            }
+            RESTORED_PREFERENCE_CARRIERS.remove(holder);
+            accessor.accessoriesToCurios$setLoadedFromTag(false);
             return;
         }
 
         CompoundTag root = nbtCarrier.compoundTag();
         if (root == null || root.isEmpty()) {
+            RESTORED_PREFERENCE_CARRIERS.remove(holder);
             accessor.accessoriesToCurios$setLoadedFromTag(false);
             return;
         }
 
-        restoreHolderPreferences(holder, root);
+        boolean migrateEnabled = !BridgeConfig.COMMON_SPEC.isLoaded() || BridgeConfig.COMMON.migrateLegacyData.get();
+        if (RESTORED_PREFERENCE_CARRIERS.get(holder) == root && !migrateEnabled) {
+            return;
+        }
+
+        if (RESTORED_PREFERENCE_CARRIERS.get(holder) != root) {
+            RESTORED_PREFERENCE_CARRIERS.put(holder, root);
+            restoreHolderPreferences(holder, root);
+        }
 
         String containersKey = root.contains("accessories_containers", Tag.TAG_COMPOUND)
                 ? "accessories_containers"
                 : (root.contains("AccessoriesContainers", Tag.TAG_COMPOUND) ? "AccessoriesContainers" : null);
 
         if (containersKey == null) {
+            RESTORED_PREFERENCE_CARRIERS.remove(holder);
             accessor.accessoriesToCurios$setLoadedFromTag(false);
             accessor.accessoriesToCurios$setCarrier(NbtMapCarrier.of());
             return;
         }
 
-        if (BridgeConfig.COMMON_SPEC.isLoaded() && !BridgeConfig.COMMON.migrateLegacyData.get()) {
+        if (!migrateEnabled) {
             return;
         }
 
@@ -145,6 +161,7 @@ public final class LegacyDataMigrator {
 
         root.remove("accessories_containers");
         root.remove("AccessoriesContainers");
+        RESTORED_PREFERENCE_CARRIERS.remove(holder);
         accessor.accessoriesToCurios$setLoadedFromTag(false);
         accessor.accessoriesToCurios$setCarrier(NbtMapCarrier.of());
         if (migratedStacks > 0 || migratedModifiers > 0) {

@@ -52,12 +52,14 @@ import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import top.theillusivec4.curios.api.CuriosApi;
@@ -151,14 +153,29 @@ public final class BridgeCommonEvents {
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(BridgeCommonEvents::onCommonSetup);
+        modEventBus.addListener(BridgeCommonEvents::onConfigLoading);
+        modEventBus.addListener(BridgeCommonEvents::onConfigReloading);
         modEventBus.addListener(EventPriority.LOWEST, BridgeCommonEvents::onRegisterCapabilities);
 
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onTagsUpdated);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerAboutToStart);
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onServerStarted);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, BridgeCommonEvents::onDatapackSync);
         NeoForge.EVENT_BUS.addListener(BridgeCommonEvents::onCurioChange);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onDropRules);
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, BridgeCommonEvents::onCurioDrops);
+    }
+
+    private static void onConfigLoading(ModConfigEvent.Loading event) {
+        SlotBridgeMap.invalidateCache();
+        BridgeSlotValidator.invalidateCache();
+        ContainerViewManager.bumpStructureGeneration();
+    }
+
+    private static void onConfigReloading(ModConfigEvent.Reloading event) {
+        SlotBridgeMap.invalidateCache();
+        BridgeSlotValidator.invalidateCache();
+        ContainerViewManager.bumpStructureGeneration();
     }
 
     private static void onCommonSetup(FMLCommonSetupEvent event) {
@@ -231,18 +248,25 @@ public final class BridgeCommonEvents {
     }
 
     private static void onTagsUpdated(TagsUpdatedEvent event) {
-        if (event.getUpdateCause() == TagsUpdatedEvent.UpdateCause.SERVER_DATA_LOAD) {
-            SlotSynchronizer.syncServerSlotsAndEntities(null);
-        }
+        BridgeSlotValidator.invalidateCache();
+        ContainerViewManager.bumpStructureGeneration();
     }
 
     private static void onServerAboutToStart(ServerAboutToStartEvent event) {
         SlotSynchronizer.syncServerSlotsAndEntities(null);
     }
 
+    private static void onServerStarted(ServerStartedEvent event) {
+        if (SlotSynchronizer.consumePendingLevelRescan()) {
+            SlotSynchronizer.syncServerSlotsAndEntities(event.getServer().overworld());
+        }
+    }
+
     private static void onDatapackSync(OnDatapackSyncEvent event) {
-        ServerPlayer singlePlayer = event.getPlayer();
-        SlotSynchronizer.syncServerSlotsAndEntities(singlePlayer != null ? singlePlayer.level() : null);
+        if (event.getPlayer() != null) {
+            return;
+        }
+        SlotSynchronizer.syncServerSlotsAndEntities(event.getPlayerList().getServer().overworld());
     }
 
     private static void onCurioChange(CurioChangeEvent event) {
@@ -268,13 +292,19 @@ public final class BridgeCommonEvents {
         SlotStateChange stateChange = isReplacement ? SlotStateChange.REPLACEMENT : SlotStateChange.MUTATION;
         AccessoryChangeCallback.EVENT.invoker().onChange(from, to, slotReference, stateChange);
         fireRecursiveNestChanges(slotReference, AccessoryNestUtils.getData(from), AccessoryNestUtils.getData(to));
-
-        if (!from.isEmpty()) {
-            reapplyRemainingExclusiveModifiers(entity, from, slotReference);
-        }
     }
 
-    private static void reapplyRemainingExclusiveModifiers(LivingEntity entity, ItemStack removedStack, SlotReference removedRef) {
+    public static void reapplyRemainingExclusiveModifiers(
+            LivingEntity entity,
+            ItemStack removedStack,
+            String removedCuriosSlot,
+            int removedSlotIndex
+    ) {
+        if (entity == null || entity.level().isClientSide() || removedStack.isEmpty()) {
+            return;
+        }
+        String accSlotName = SlotBridgeMap.resolveContainerSlotName(entity, removedCuriosSlot);
+        SlotReference removedRef = SlotReference.of(entity, accSlotName, Math.max(0, removedSlotIndex));
         AccessoryAttributeBuilder removedBuilder = AccessoriesAPI.getAttributeModifiers(removedStack, removedRef);
         if (removedBuilder.exclusiveAttributes().isEmpty()) {
             return;
@@ -288,7 +318,14 @@ public final class BridgeCommonEvents {
             if (stack.isEmpty()) {
                 continue;
             }
-            AccessoryAttributeBuilder activeBuilder = AccessoriesAPI.getAttributeModifiers(stack, equipped.reference());
+            SlotReference eqRef = equipped.reference();
+            String eqCuriosSlot = eqRef.slotContainer() instanceof CuriosBackedAccessoriesContainer backed
+                    ? backed.getCuriosSlotId()
+                    : SlotBridgeMap.toCuriosSlot(eqRef.slotName());
+            if (eqRef.slot() == removedSlotIndex && eqCuriosSlot.equals(removedCuriosSlot)) {
+                continue;
+            }
+            AccessoryAttributeBuilder activeBuilder = AccessoriesAPI.getAttributeModifiers(stack, eqRef);
             for (Map.Entry<Holder<Attribute>, Map<ResourceLocation, AttributeModificationData>> attrEntry : activeBuilder.exclusiveAttributes().entrySet()) {
                 Holder<Attribute> attribute = attrEntry.getKey();
                 AttributeInstance instance = entity.getAttribute(attribute);

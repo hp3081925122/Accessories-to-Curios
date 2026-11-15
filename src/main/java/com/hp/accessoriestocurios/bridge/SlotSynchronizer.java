@@ -10,6 +10,7 @@ import io.wispforest.accessories.api.Accessory;
 import io.wispforest.accessories.api.components.AccessoriesDataComponents;
 import io.wispforest.accessories.api.components.AccessoryItemAttributeModifiers;
 import io.wispforest.accessories.api.components.AccessorySlotValidationComponent;
+import io.wispforest.accessories.api.data.AccessoriesBaseData;
 import io.wispforest.accessories.api.data.AccessoriesTags;
 import io.wispforest.accessories.api.slot.SlotType;
 import io.wispforest.accessories.api.slot.UniqueSlotHandling;
@@ -42,12 +43,20 @@ public final class SlotSynchronizer {
             ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "tag");
     private static final ResourceLocation DEFAULT_CURIO_ICON =
             ResourceLocation.fromNamespaceAndPath(CuriosApi.MODID, "slot/empty_curio_slot");
+    private static volatile boolean pendingLevelRescan = false;
 
     private SlotSynchronizer() {
     }
 
+    public static boolean consumePendingLevelRescan() {
+        boolean pending = pendingLevelRescan;
+        pendingLevelRescan = false;
+        return pending;
+    }
+
     public static void syncServerSlotsAndEntities(@Nullable Level fallbackLevel) {
         if (BridgeConfig.COMMON_SPEC.isLoaded() && !BridgeConfig.COMMON.autoRegisterUsedSlots.get()) {
+            pendingLevelRescan = false;
             return;
         }
 
@@ -55,6 +64,7 @@ public final class SlotSynchronizer {
         Map<EntityType<?>, Map<String, SlotType>> accEntitySlots = EntitySlotLoader.INSTANCE.getEntitySlotData(false);
 
         Set<String> usedAccSlots = new LinkedHashSet<>();
+        boolean hasCustomSlotValidators = false;
         for (Map.Entry<String, SlotType> entry : accSlots.entrySet()) {
             String name = entry.getKey();
             if (BridgeSlotValidator.isInternalArmorProxySlot(name)) {
@@ -63,6 +73,13 @@ public final class SlotSynchronizer {
             SlotType slotType = entry.getValue();
             if (slotType.amount() <= 0) {
                 continue;
+            }
+            for (ResourceLocation validator : slotType.validators()) {
+                if (!AccessoriesBaseData.TAG_PREDICATE_ID.equals(validator)
+                        && !AccessoriesBaseData.COMPONENT_PREDICATE_ID.equals(validator)) {
+                    hasCustomSlotValidators = true;
+                    break;
+                }
             }
             Integer defaultAmount = BridgeSlotValidator.DEFAULT_ACCESSORIES_SLOT_AMOUNTS.get(name);
             if (UniqueSlotHandling.isUniqueSlot(name)
@@ -74,6 +91,7 @@ public final class SlotSynchronizer {
 
         boolean[] needsUniversalCurioSlot = new boolean[]{false};
         Level scanLevel = fallbackLevel != null ? fallbackLevel : BridgeRuntimeAccess.resolveLevel(null);
+        pendingLevelRescan = scanLevel == null && hasCustomSlotValidators;
 
         for (Item item : BuiltInRegistries.ITEM) {
             ItemStack stack = item.getDefaultInstance();
@@ -244,6 +262,7 @@ public final class SlotSynchronizer {
         }
         entityAccessor.accessoriesToCurios$setEntitySlots(finalEntityMap.build());
         AccessoriesCapabilityImpl.clearValidationCache(false);
+        BridgeSlotValidator.invalidateCache();
         ContainerViewManager.bumpStructureGeneration();
         LOGGER.debug(
                 "[Accessories to Curios] Synchronized {} used Accessories slots into Curios (universalCurioSlot={}): {}",
