@@ -1,0 +1,33 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.hp.accessoriestocurios.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AccessoriesCapabilityImplMixin",
+    "AccessoriesEventHandlerMixin",
+    "AccessoriesForgeMixin",
+    "AccessoriesHolderImplAccessor",
+    "AccessoriesHolderImplMixin",
+    "AccessoriesMixin",
+    "CurioStacksHandlerMixin",
+    "CuriosEntityManagerAccessor",
+    "CuriosEventHandlerMixin",
+    "CuriosImplMixinHooksMixin",
+    "CuriosSlotManagerAccessor",
+    "EnchantmentHelperBridgeMixin",
+    "LivingEntityBridgeMixin",
+    "NetworkRegistryOwoFixMixin",
+    "ServerPlayerBridgeMixin",
+    "SlotTypeLoaderMixin"
+  ],
+  "client": [
+    "client.AccessoriesClientForgeMixin",
+    "client.AccessoriesClientMixin",
+    "client.AccessoriesRendererRegistryMixin",
+    "client.CurioSlotMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
