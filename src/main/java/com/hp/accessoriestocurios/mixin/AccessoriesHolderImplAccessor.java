@@ -4,8 +4,6 @@ import io.wispforest.accessories.api.AccessoriesContainer;
 import io.wispforest.accessories.impl.AccessoriesHolderImpl;
 import io.wispforest.endec.util.MapCarrier;
 import java.util.Map;
-import java.util.Set;
-import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -13,9 +11,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface AccessoriesHolderImplAccessor {
     @Accessor("slotContainers")
     Map<String, AccessoriesContainer> accessoriesToCurios$getSlotContainers();
-
-    @Accessor("validSlotTypes")
-    void accessoriesToCurios$setValidSlotTypes(@Nullable Set<String> validSlotTypes);
 
     @Accessor("carrier")
     MapCarrier accessoriesToCurios$getCarrier();

@@ -16,7 +16,6 @@ import io.wispforest.accessories.api.slot.SlotType;
 import io.wispforest.accessories.api.slot.UniqueSlotHandling;
 import io.wispforest.accessories.data.EntitySlotLoader;
 import io.wispforest.accessories.data.SlotTypeLoader;
-import io.wispforest.accessories.impl.AccessoriesCapabilityImpl;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -261,7 +260,7 @@ public final class SlotSynchronizer {
             }
         }
         entityAccessor.accessoriesToCurios$setEntitySlots(finalEntityMap.build());
-        AccessoriesCapabilityImpl.clearValidationCache(false);
+        AccessoriesCompat.clearValidationCache(false);
         BridgeSlotValidator.invalidateCache();
         ContainerViewManager.bumpStructureGeneration();
         LOGGER.debug(

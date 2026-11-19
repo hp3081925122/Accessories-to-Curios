@@ -1,9 +1,9 @@
 package com.hp.accessoriestocurios.mixin;
 
+import com.hp.accessoriestocurios.bridge.AccessoriesCompat;
 import com.hp.accessoriestocurios.bridge.LegacyDataMigrator;
 import io.wispforest.accessories.api.AccessoriesAPI;
 import io.wispforest.accessories.api.Accessory;
-import io.wispforest.accessories.impl.AccessoriesCapabilityImpl;
 import io.wispforest.accessories.impl.AccessoriesEventHandler;
 import io.wispforest.accessories.networking.AccessoriesNetworking;
 import io.wispforest.accessories.networking.client.SyncData;
@@ -96,7 +96,7 @@ public abstract class AccessoriesEventHandlerMixin {
             AccessoriesNetworking.sendToPlayer(player, syncPacket);
         }
         AccessoriesEventHandler.dataReloadOccurred = false;
-        AccessoriesCapabilityImpl.clearValidationCache(false);
+        AccessoriesCompat.clearValidationCache(false);
         ci.cancel();
     }
 

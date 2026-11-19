@@ -113,7 +113,7 @@ public final class ContainerViewManager {
             backingMap.clear();
             backingMap.putAll(desired);
         }
-        accessor.accessoriesToCurios$setValidSlotTypes(null);
+        AccessoriesCompat.resetHolderValidSlotView(holder);
     }
 
     private static String pickUniqueContainerName(
