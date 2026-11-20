@@ -5,6 +5,7 @@ import com.hp.accessoriestocurios.bridge.LegacyDataMigrator;
 import io.wispforest.accessories.AccessoriesInternals;
 import io.wispforest.accessories.api.AccessoriesCapability;
 import io.wispforest.accessories.api.AccessoriesContainer;
+import io.wispforest.accessories.api.AccessoriesHolder;
 import io.wispforest.accessories.api.slot.SlotType;
 import io.wispforest.accessories.data.EntitySlotLoader;
 import io.wispforest.accessories.impl.AccessoriesCapabilityImpl;
@@ -41,23 +42,54 @@ public abstract class AccessoriesCapabilityImplMixin {
     private int accessoriesToCurios$syncedCuriosCount = -1;
 
     @Unique
+    private AccessoriesHolderImpl accessoriesToCurios$syncedHolder;
+
+    @Unique
     private AccessoriesCapability accessoriesToCurios$boundCapability;
+
+    @Inject(method = "getHolder", at = @At("HEAD"), cancellable = true)
+    private void accessoriesToCurios$getHolder(CallbackInfoReturnable<AccessoriesHolder> cir) {
+        AccessoriesHolder rawHolder = AccessoriesInternals.getHolder(this.entity);
+        if (rawHolder instanceof AccessoriesHolderImpl holder) {
+            this.accessoriesToCurios$ensureHolderSynced(holder, (AccessoriesCapability) this);
+        }
+        cir.setReturnValue(rawHolder);
+    }
 
     @Inject(method = "getContainers", at = @At("HEAD"), cancellable = true)
     private void accessoriesToCurios$getContainers(CallbackInfoReturnable<Map<String, AccessoriesContainer>> cir) {
-        AccessoriesCapability self = (AccessoriesCapability) this;
-        AccessoriesHolderImpl holder = (AccessoriesHolderImpl) self.getHolder();
+        AccessoriesHolder rawHolder = AccessoriesInternals.getHolder(this.entity);
+        if (rawHolder instanceof AccessoriesHolderImpl holder) {
+            this.accessoriesToCurios$ensureHolderSynced(holder, (AccessoriesCapability) this);
+            cir.setReturnValue(((AccessoriesHolderImplAccessor) holder).accessoriesToCurios$getSlotContainers());
+        }
+    }
+
+    @Unique
+    private void accessoriesToCurios$ensureHolderSynced(AccessoriesHolderImpl holder, AccessoriesCapability self) {
+        AccessoriesHolderImplAccessor accessor = (AccessoriesHolderImplAccessor) holder;
+        boolean loadedFromTag = accessor.accessoriesToCurios$isLoadedFromTag();
+        if (loadedFromTag) {
+            if (!this.entity.level().isClientSide()) {
+                LegacyDataMigrator.migrateEntityIfNeeded(this.entity);
+            } else {
+                accessor.accessoriesToCurios$setLoadedFromTag(false);
+            }
+        }
         int generation = ContainerViewManager.currentStructureGeneration();
         Map<String, SlotType> accSlots = EntitySlotLoader.getEntitySlots(this.entity);
         Map<String, ISlotType> curiosSlots = CuriosApi.getEntitySlots(this.entity);
         int curiosCount = ContainerViewManager.getCuriosHandlerCount(this.entity);
         boolean expectsContainers = !accSlots.isEmpty() || !curiosSlots.isEmpty() || curiosCount > 0;
-        if (this.accessoriesToCurios$syncedGeneration != generation
+        if (loadedFromTag
+                || this.accessoriesToCurios$syncedHolder != holder
+                || this.accessoriesToCurios$syncedGeneration != generation
                 || this.accessoriesToCurios$syncedAccSlots != accSlots
                 || this.accessoriesToCurios$syncedCuriosSlots != curiosSlots
                 || this.accessoriesToCurios$syncedCuriosCount != curiosCount
-                || (expectsContainers && ((AccessoriesHolderImplAccessor) holder).accessoriesToCurios$getSlotContainers().isEmpty())) {
+                || (expectsContainers && accessor.accessoriesToCurios$getSlotContainers().isEmpty())) {
             ContainerViewManager.refreshHolderContainers(holder, self);
+            this.accessoriesToCurios$syncedHolder = holder;
             this.accessoriesToCurios$syncedGeneration = generation;
             this.accessoriesToCurios$syncedAccSlots = accSlots;
             this.accessoriesToCurios$syncedCuriosSlots = curiosSlots;
@@ -67,7 +99,6 @@ public abstract class AccessoriesCapabilityImplMixin {
             ContainerViewManager.rebindContainers(holder, self);
             this.accessoriesToCurios$boundCapability = self;
         }
-        cir.setReturnValue(((AccessoriesHolderImplAccessor) holder).accessoriesToCurios$getSlotContainers());
     }
 
     @Inject(method = "reset", at = @At("HEAD"), cancellable = true)
@@ -78,6 +109,7 @@ public abstract class AccessoriesCapabilityImplMixin {
         if (AccessoriesInternals.getHolder(this.entity) instanceof AccessoriesHolderImpl holder) {
             AccessoriesCapability self = (AccessoriesCapability) this;
             ContainerViewManager.refreshHolderContainers(holder, self);
+            this.accessoriesToCurios$syncedHolder = holder;
             this.accessoriesToCurios$syncedGeneration = ContainerViewManager.currentStructureGeneration();
             this.accessoriesToCurios$syncedAccSlots = EntitySlotLoader.getEntitySlots(this.entity);
             this.accessoriesToCurios$syncedCuriosSlots = CuriosApi.getEntitySlots(this.entity);
