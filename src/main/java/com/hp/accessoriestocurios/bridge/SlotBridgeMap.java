@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -46,6 +47,8 @@ public final class SlotBridgeMap {
 
     private static final MappingSnapshot EMPTY_SNAPSHOT = new MappingSnapshot(Map.of(), Map.of(), Map.of());
     private static volatile MappingSnapshot cachedSnapshot;
+    private static final Map<String, String> SANITIZED_ID_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, String> TO_CURIOS_CACHE = new ConcurrentHashMap<>();
 
     private record MappingSnapshot(
             Map<String, String> accToCurios,
@@ -59,6 +62,7 @@ public final class SlotBridgeMap {
 
     public static void invalidateCache() {
         cachedSnapshot = null;
+        TO_CURIOS_CACHE.clear();
     }
 
     private static MappingSnapshot getSnapshot() {
@@ -120,15 +124,22 @@ public final class SlotBridgeMap {
         if (accessoriesSlot == null || accessoriesSlot.isEmpty()) {
             return "curio";
         }
+        String cached = TO_CURIOS_CACHE.get(accessoriesSlot);
+        if (cached != null) {
+            return cached;
+        }
         String custom = getSnapshot().accToCurios().get(accessoriesSlot);
+        String resolved;
         if (custom != null) {
-            return custom;
+            resolved = custom;
+        } else {
+            String builtin = BUILTIN_ACC_TO_CURIOS.get(accessoriesSlot);
+            resolved = builtin != null ? builtin : sanitizeCuriosId(accessoriesSlot);
         }
-        String builtin = BUILTIN_ACC_TO_CURIOS.get(accessoriesSlot);
-        if (builtin != null) {
-            return builtin;
+        if (BridgeConfig.COMMON_SPEC.isLoaded()) {
+            TO_CURIOS_CACHE.put(accessoriesSlot, resolved);
         }
-        return sanitizeCuriosId(accessoriesSlot);
+        return resolved;
     }
 
     public static String toAccessoriesSlot(String curiosSlot) {
@@ -151,6 +162,10 @@ public final class SlotBridgeMap {
     }
 
     public static String sanitizeCuriosId(String rawId) {
+        String cached = SANITIZED_ID_CACHE.get(rawId);
+        if (cached != null) {
+            return cached;
+        }
         String replaced = rawId.toLowerCase(Locale.ROOT).replace(":", COLON_TOKEN);
         StringBuilder sb = new StringBuilder(replaced.length());
         for (int i = 0; i < replaced.length(); i++) {
@@ -161,7 +176,9 @@ public final class SlotBridgeMap {
                 sb.append('_');
             }
         }
-        return sb.isEmpty() ? "curio" : sb.toString();
+        String result = sb.isEmpty() ? "curio" : sb.toString();
+        SANITIZED_ID_CACHE.put(rawId, result);
+        return result;
     }
 
     public static List<String> getCandidateAccessoriesSlots(String curiosSlot, @Nullable Level level) {
